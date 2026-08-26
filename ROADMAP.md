@@ -51,18 +51,55 @@ months). Primary target `roll_to_90p_6m` event rate: **9.6%**. Data is
 clean (0 missing values, 0 duplicate IDs, 0 out-of-range values in the
 checks run so far).
 
-## Milestone 2 — Explore & Prepare (NOT STARTED)
+## Milestone 2 — Explore & Prepare (DONE)
 
-- [ ] Phase 2 — Business Problem & Credit Risk Journey slide, with an
-  educational (non-model-backed) delinquency-journey simulator.
-- [ ] Phase 6 — Exploratory Data Analysis: target analysis, delinquency
-  analysis, payment behavior, utilization analysis, affordability analysis,
-  customer/portfolio analysis, correlation/relationship explorer. Needs
-  Plotly wired in for interactive charts (not required by Milestone 1).
-- [ ] Phase 7 — Behavioral Feature Engineering Lab: trend, rolling,
-  volatility, stress, and momentum features per `trade_id`.
-- [ ] Phase 9 — Out-of-Time Split simulator (train/validation/OOT test by
-  `month_end_date`, with per-period account/observation/event-rate stats).
+- [x] **Phase 2 — Business Problem & Credit Risk Journey.** Two pages:
+  `/business-problem` (what DPD/delinquency/"roll" mean, why 90+ DPD is the
+  threshold, reactive vs. proactive collections) and `/journey` (visual
+  Current→Early→30+→60+→90+ DPD flow with real roll/cure rates per stage,
+  plus an educational cohort simulator — an empirical lookup over real rows
+  by DPD/payment ratio/utilization/bounces, explicitly labeled as not a
+  model prediction, with a risk-band readout and a sparse-cohort warning).
+  Files: `services/journey_service.py`, `routes/journey.py`,
+  `templates/business_problem.html`, `templates/journey.html`,
+  `static/js/journey.js`.
+- [x] **Phase 6 — Exploratory Data Analysis** (`/eda/`). 7 tabs (target,
+  delinquency, payment behavior, utilization, affordability, portfolio,
+  correlation) plus a variable-vs-target explorer, all backed by live
+  pandas aggregation over the full 1.51M-row dataset with product/lender/
+  customer-type/city-tier/date filters. Plotly wired in via a locally
+  bundled `plotly.min.js` (no CDN dependency).
+  Files: `services/eda_service.py`, `routes/eda.py`, `templates/eda.html`,
+  `static/js/eda.js`, `static/js/charts.js` (shared chart styling).
+- [x] **Phase 7 — Behavioral Feature Engineering Lab** (`/features/`). 19
+  trailing-window features per `trade_id` (trend, rolling, volatility,
+  stress, momentum, context families) over a 3-month window, with a
+  target-correlation diagnostic and per-account sample inspection.
+  Files: `scripts/build_features.py`, `services/feature_service.py`,
+  `routes/features.py`, `templates/features.html`, `static/js/features.js`.
+- [x] **Phase 9 — Out-of-Time Split Simulator** (`/split/`). Interactive
+  month-boundary pickers for train/validation/OOT test, with per-period
+  account/observation/customer/event counts, overlap reporting, and
+  automatic warnings for overlapping or empty periods.
+  Files: `services/split_service.py`, `routes/split.py`,
+  `templates/split.html`, `static/js/split.js`.
+
+**Right-censoring found and fixed**: the note carried from Milestone 1
+planning turned out to be real, not hypothetical. `roll_to_90p_6m` needs a
+6-month forward window, but the data ends 2026-03; the monthly roll-rate
+chart showed the rate collapsing to exactly 0% in the final month — a data
+artifact, not declining risk. `scripts/prepare_data.py` now runs
+`compute_label_maturity()` and flags it as a **red** quality check: 281,760
+rows (18.6%), from 2025-10 onward, are right-censored and must be excluded
+from modeling. The OOT Split Simulator excludes them from its default
+70/15/15 boundaries and warns if a chosen test window extends into them.
+
+**Key numbers confirmed from real data this milestone**: roll rate rises
+monotonically by DPD stage — Current 7.86% → Early 13.85% → 30+ 16.37% →
+60+ 18.46% → 90+ 23.11%. `cure_3m` is ~88-91% for already-delinquent
+accounts. Strongest engineered-feature signal: `payment_ratio_avg_3m`
+(r=-0.175) and `dpd_avg_3m` (r=+0.175) — rolling/stress features carry far
+more signal than single-month deltas (all |r| < 0.01).
 
 ## Milestone 3 — Modeling & Evaluation (NOT STARTED)
 
@@ -78,14 +115,11 @@ checks run so far).
 - [ ] Phase 14 — KS analysis dashboard.
 - [ ] Phase 15 — Lift & Gains analysis, decile table, top-10% capture.
 
-**Note carried from planning**: since `roll_to_90p_6m` is a 6-month-forward
-label, verify whether the most recent few months in the dataset have a
-genuinely matured outcome window before trusting their label as ground
-truth (Milestone 1's quality check found 0% missing across the full pulled
-dataset, since this is a synthetic/simulated case-study dataset rather than
-a live production pull — but this should still be re-verified before OOT
-splitting in Milestone 3, and is the standard practice for any real-world
-version of this pipeline).
+**Right-censoring, resolved in Milestone 2**: see above — confirmed real,
+quantified (18.6% of rows), flagged in the Data Quality Dashboard, and
+excluded by default in the OOT Split Simulator. Milestone 3's training runs
+should build on top of the split simulator's boundaries rather than
+re-deriving this from scratch.
 
 ## Milestone 4 — Interactive Decision Support (NOT STARTED)
 
@@ -126,5 +160,6 @@ git lfs pull --include="Raw Data and Data Dictionary/02_Data_Mart/behavior_risk_
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r credit_risk_app/requirements.txt
 python credit_risk_app/scripts/prepare_data.py   # builds parquet + summary cache (one-time)
+python credit_risk_app/scripts/build_features.py # builds engineered features (one-time, after prepare_data.py)
 python credit_risk_app/app.py                    # serves on http://localhost:5000
 ```

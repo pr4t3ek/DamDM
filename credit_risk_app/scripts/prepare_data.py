@@ -89,8 +89,31 @@ def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+TARGET_HORIZON_MONTHS = 6
+
+
 def pct(n, d):
     return round(100.0 * n / d, 3) if d else 0.0
+
+
+def compute_label_maturity(df: pd.DataFrame) -> dict:
+    """
+    roll_to_90p_6m looks 6 months forward, so observations within 6 months of
+    the dataset's end cannot have a fully observed outcome. Their labels are
+    right-censored (under-counted toward 0) and must be excluded from modeling.
+    """
+    months = df["month_end_date"].dt.to_period("M")
+    data_max = months.max()
+    last_mature = data_max - TARGET_HORIZON_MONTHS
+    immature_mask = months > last_mature
+    return dict(
+        horizon_months=TARGET_HORIZON_MONTHS,
+        data_max_month=str(data_max),
+        last_mature_month=str(last_mature),
+        first_immature_month=str(last_mature + 1),
+        immature_rows=int(immature_mask.sum()),
+        mature_rows=int((~immature_mask).sum()),
+    )
 
 
 def build_quality_checks(df: pd.DataFrame) -> list:
@@ -145,12 +168,24 @@ def build_quality_checks(df: pd.DataFrame) -> list:
     checks.append(dict(
         name="Missing primary target (roll_to_90p_6m)",
         status="amber" if missing_target > 0 else "green",
-        detail=(
-            f"{missing_target} row(s) ({pct(missing_target, n)}%) have no roll_to_90p_6m label — "
-            "likely observations too recent to have a matured 6-month outcome window. "
-            "These rows must be excluded from model training/evaluation, not treated as label=0."
-        ),
+        detail=f"{missing_target} row(s) ({pct(missing_target, n)}%) have no roll_to_90p_6m label.",
         count=missing_target,
+    ))
+
+    maturity = compute_label_maturity(df)
+    immature_rows = maturity["immature_rows"]
+    checks.append(dict(
+        name="Right-censored target labels (immature outcome window)",
+        status="red" if immature_rows > 0 else "green",
+        detail=(
+            f"The target needs a {TARGET_HORIZON_MONTHS}-month forward window, but the data ends "
+            f"{maturity['data_max_month']}. Observations from {maturity['first_immature_month']} onward "
+            f"({immature_rows:,} rows, {pct(immature_rows, n)}%) cannot have a fully observed outcome, so "
+            f"their labels are systematically under-counted (the final month shows a 0% event rate). "
+            f"EXCLUDE these rows from training, validation, and test — do not treat label=0 as ground truth. "
+            f"Last fully mature observation month: {maturity['last_mature_month']}."
+        ),
+        count=immature_rows,
     ))
 
     neg_balance = int((df["current_balance"] < 0).sum())
@@ -200,6 +235,15 @@ def build_summary(df: pd.DataFrame, extra_cols: list) -> dict:
 
     dtypes = {c: str(df[c].dtype) for c in df.columns}
 
+    monthly = (
+        df.assign(month=df["month_end_date"].dt.to_period("M").astype(str))
+        .groupby("month", observed=True)["roll_to_90p_6m"]
+        .agg(observations="count", events="sum")
+        .reset_index()
+        .sort_values("month")
+    )
+    monthly["event_rate"] = (100 * monthly["events"] / monthly["observations"]).round(3)
+
     dpd_positive = int((df["dpd"].fillna(0) > 0).sum())
     delinquency_rate = pct(dpd_positive, n)
     roll_valid = df["roll_to_90p_6m"].dropna()
@@ -234,6 +278,8 @@ def build_summary(df: pd.DataFrame, extra_cols: list) -> dict:
             avg_utilization=round(float(df["utilization_ratio"].mean()), 4),
             avg_dpd=round(float(df["dpd"].astype("float").mean()), 2),
         ),
+        label_maturity=compute_label_maturity(df),
+        monthly_roll_rate=monthly.to_dict(orient="records"),
         missingness=missingness,
         dtypes=dtypes,
         numeric_summary=numeric_summary,

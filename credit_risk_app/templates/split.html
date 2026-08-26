@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}OOT Split{% endblock %}
+{% block page_title %}Out-of-Time Split Simulator{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Out-of-Time Split Simulator</h1>
+  <p>
+    Validation for this model is <strong>chronological, not random</strong>. Pick the month boundaries for
+    training, validation, and the out-of-time test period, and see how many accounts, observations, and
+    events land in each.
+  </p>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--red);">
+  <h2>Right-censored labels are excluded automatically</h2>
+  <p style="margin-top:-4px;">
+    <code>roll_to_90p_6m</code> looks <strong>{{ summary.label_maturity.horizon_months }} months forward</strong>, but the
+    dataset ends <strong>{{ summary.label_maturity.data_max_month }}</strong>. Observations from
+    <strong>{{ summary.label_maturity.first_immature_month }}</strong> onward cannot have a fully observed outcome, so
+    their labels are systematically under-counted &mdash; the final month shows a 0% event rate purely because there is
+    no lookahead window, not because risk vanished.
+  </p>
+  <div class="kpi-grid" style="margin-top:14px;">
+    <div class="kpi-card"><div class="kpi-label">Last Mature Month</div><div class="kpi-value" style="font-size:19px;">{{ summary.label_maturity.last_mature_month }}</div><div class="kpi-sub">Usable for modeling</div></div>
+    <div class="kpi-card"><div class="kpi-label">Usable Observations</div><div class="kpi-value">{{ "{:,}".format(summary.label_maturity.mature_rows) }}</div><div class="kpi-sub">Fully matured labels</div></div>
+    <div class="kpi-card"><div class="kpi-label">Excluded (Censored)</div><div class="kpi-value" style="color:var(--red);">{{ "{:,}".format(summary.label_maturity.immature_rows) }}</div><div class="kpi-sub">{{ summary.label_maturity.first_immature_month }} onward</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Monthly Event Rate &mdash; Mature vs. Censored</h2>
+  <div id="chart-maturity" class="chart"></div>
+  <p class="chart-note">
+    The shaded region marks months whose 6-month outcome window is incomplete. The visible collapse in event
+    rate there is a data artifact, not a real risk trend &mdash; training on it would teach the model that recent
+    accounts never default.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Split Boundaries</h2>
+  <form id="split-form" class="filters-bar" style="margin-bottom:0; align-items:flex-end;">
+    {% for label, a, b in [
+      ('Training', 'train_start', 'train_end'),
+      ('Validation', 'valid_start', 'valid_end'),
+      ('OOT Test', 'test_start', 'test_end')] %}
+    <div>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-muted); margin-bottom:4px;">{{ label }}</div>
+      <select name="{{ a }}">
+        {% for m in months %}<option value="{{ m }}" {{ 'selected' if m == defaults[a] }}>{{ m }}</option>{% endfor %}
+      </select>
+      <span style="color:var(--text-muted);">&rarr;</span>
+      <select name="{{ b }}">
+        {% for m in months %}<option value="{{ m }}" {{ 'selected' if m == defaults[b] }}>{{ m }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Apply split</button>
+    <button type="reset" class="btn">Reset to 70/15/15</button>
+  </form>
+</div>
+
+<div id="split-warnings"></div>
+
+<div class="card">
+  <h2>Split Composition</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th>Period</th><th>Months</th><th># Months</th><th>Observations</th><th>Accounts</th><th>Customers</th><th>Events</th><th>Event Rate</th></tr>
+      </thead>
+      <tbody id="split-tbody">
+        <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:18px;">Computing&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Event Rate by Period</h2>
+    <div id="chart-split-rate" class="chart"></div>
+    <p class="chart-note">Event rates should be broadly comparable across periods. A large gap signals population drift the model will have to survive.</p>
+  </div>
+  <div class="card">
+    <h2>Account Overlap Between Periods</h2>
+    <div id="overlap-box"></div>
+    <p class="chart-note">
+      This mart is panel data &mdash; one account contributes many monthly rows. Accounts appearing in more than one
+      period are expected in a time-based split (an account observed for years spans all three), and are not the
+      same thing as row-level leakage: no row's future outcome is ever visible in an earlier period. Reported here
+      so the effect is explicit rather than hidden. A grouped split by <code>trade_id</code> is the alternative if
+      strict account separation is required.
+    </p>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.SPLIT_DATA_URL = "{{ url_for('split.data') }}";
+  window.SPLIT_DEFAULTS = {{ defaults | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/split.js') }}"></script>
+{% endblock %}
