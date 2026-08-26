@@ -28,7 +28,10 @@ git lfs install
 git lfs pull --include="Raw Data and Data Dictionary/02_Data_Mart/behavior_risk_mart_part_*.csv"
 
 # 2. Python environment
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate        # macOS/Linux
+# .venv\Scripts\activate.bat     # Windows cmd.exe
+# .venv\Scripts\Activate.ps1     # Windows PowerShell
 pip install -r credit_risk_app/requirements.txt
 
 # 3. Prepare data, features, and models (run once, in order; ~5 min total)
