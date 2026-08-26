@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Credit Risk Journey{% endblock %}
+{% block page_title %}Credit Risk Journey{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Credit Risk Journey</h1>
+  <p>How an account's risk compounds as it moves through delinquency stages, and an interactive lookup for
+    how specific behaviors relate to observed outcomes in this dataset.</p>
+</div>
+
+<div class="card">
+  <h2>The Journey: Current &rarr; Early Delinquency &rarr; 30+ &rarr; 60+ &rarr; 90+ DPD</h2>
+  <div class="journey-flow">
+    {% for s in stages %}
+    <div class="journey-stage stage-{{ s.key|lower }}">
+      <div class="journey-stage-label">{{ s.label }}</div>
+      <div class="journey-stage-rate">{{ s.roll_rate if s.roll_rate is not none else '—' }}%</div>
+      <div class="journey-stage-sub">roll rate</div>
+    </div>
+    {% if not loop.last %}<div class="journey-arrow">&rarr;</div>{% endif %}
+    {% endfor %}
+  </div>
+  <p class="chart-note">
+    Roll rate rises monotonically with current delinquency stage &mdash; from
+    {{ stages[0].roll_rate }}% at Current to {{ stages[-1].roll_rate }}% once already 90+ DPD. Cure rate
+    (returning to current within 3 months) is 0% for Current/Early accounts by definition &mdash; there is
+    nothing to cure &mdash; and roughly 88-91% for accounts already 30+ DPD, shown below.
+  </p>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Stage</th><th>Observations</th><th>Share</th><th>Roll Rate (6m)</th><th>Cure Rate (3m)</th></tr></thead>
+      <tbody>
+        {% for s in stages %}
+        <tr>
+          <td>{{ s.label }}</td>
+          <td>{{ "{:,}".format(s.observations) }}</td>
+          <td>{{ s.share }}%</td>
+          <td>{{ s.roll_rate }}%</td>
+          <td>{% if s.cure_rate is not none %}{{ s.cure_rate }}%{% else %}n/a (not delinquent){% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Delinquency Journey Simulator</h2>
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8;">
+    <strong>This is educational, not a prediction.</strong> It looks up the observed historical roll rate for
+    real accounts matching the characteristics you pick below &mdash; a cohort lookup, not a trained model
+    score. The actual model arrives in Milestone 3, on its own page, with proper validation.
+  </div>
+  <div class="filters-bar" id="sim-controls">
+    <div>
+      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Current DPD</label>
+      <select name="dpd">{% for c in choices.dpd %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}</select>
+    </div>
+    <div>
+      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Payment Ratio</label>
+      <select name="payment_ratio">{% for c in choices.payment_ratio %}<option value="{{ c.value }}" {{ 'selected' if c.value == '1.05' }}>{{ c.label }}</option>{% endfor %}</select>
+    </div>
+    <div>
+      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Utilization</label>
+      <select name="utilization">{% for c in choices.utilization %}<option value="{{ c.value }}" {{ 'selected' if c.value == '0.4' }}>{{ c.label }}</option>{% endfor %}</select>
+    </div>
+    <div>
+      <label style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:4px;">Recent Bounces (3m)</label>
+      <select name="bounces">{% for c in choices.bounces %}<option value="{{ c.value }}">{{ c.label }}</option>{% endfor %}</select>
+    </div>
+    <button id="sim-reset" type="button" class="btn" style="align-self:flex-end;">Reset Simulator</button>
+  </div>
+
+  <div class="kpi-grid" style="margin-top:18px;">
+    <div class="kpi-card">
+      <div class="kpi-label">Cohort Observed Roll Rate</div>
+      <div class="kpi-value" id="sim-rate">&mdash;</div>
+      <div class="kpi-sub" id="sim-n">&mdash;</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Dataset Baseline</div>
+      <div class="kpi-value" id="sim-baseline">{{ summary.kpis.roll_90p_6m_rate }}%</div>
+      <div class="kpi-sub">All observations</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Lift vs. Baseline</div>
+      <div class="kpi-value" id="sim-lift">&mdash;</div>
+      <div class="kpi-sub">Cohort rate &divide; baseline rate</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Risk Band</div>
+      <div class="kpi-value" id="sim-band" style="font-size:19px;">&mdash;</div>
+      <div class="kpi-sub" id="sim-action">&mdash;</div>
+    </div>
+  </div>
+  <div id="sim-sparse-warning"></div>
+
+  <h3 style="margin-top:22px;">Which factor is doing the most work?</h3>
+  <div id="chart-sim-factors" class="chart" style="min-height:220px;"></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>window.COHORT_URL = "{{ url_for('journey.cohort') }}";</script>
+<script src="{{ url_for('static', filename='js/journey.js') }}"></script>
+{% endblock %}

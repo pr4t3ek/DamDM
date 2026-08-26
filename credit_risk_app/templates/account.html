@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Account 360{% endblock %}
+{% block page_title %}Account 360{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Account 360 / Risk Explorer</h1>
+  <p>Full history and live model score for any single account. Enter a <code>trade_id</code> to inspect it.</p>
+</div>
+
+<div class="card">
+  <form method="get" action="{{ url_for('account.index') }}" class="filters-bar" style="margin-bottom:0;">
+    <input type="text" name="trade_id" placeholder="Trade ID (e.g. {{ searched_trade_id }})" value="{{ searched_trade_id }}" style="min-width:220px;">
+    <button type="submit" class="btn btn-primary">Look Up Account</button>
+  </form>
+</div>
+
+{% if not account %}
+<div class="coming-soon-note">No account found with trade_id "{{ searched_trade_id }}". Try an ID like <code>T000000001</code>.</div>
+{% else %}
+{% set a = account %}
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">Current Balance</div><div class="kpi-value">{{ "{:,.0f}".format(a.current_balance) }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">DPD</div><div class="kpi-value">{{ a.dpd }}</div><div class="kpi-sub">{{ a.account_status }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Utilization</div><div class="kpi-value">{{ (a.utilization_ratio * 100) | round(1) }}%</div></div>
+  <div class="kpi-card"><div class="kpi-label">Payment Ratio</div><div class="kpi-value">{{ a.payment_ratio }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Recent Bounces (3m)</div><div class="kpi-value">{{ a.recent_bounce_count_3m }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Months on Book</div><div class="kpi-value">{{ a.months_on_book }}</div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Account</h2>
+    <table class="data-table">
+      <tbody>
+        <tr><td>Trade ID</td><td><code>{{ a.trade_id }}</code></td></tr>
+        <tr><td>Customer ID</td><td><code>{{ a.customer_id }}</code></td></tr>
+        <tr><td>Lender</td><td>{{ a.lender_id }}</td></tr>
+        <tr><td>Product</td><td>{{ a.product }}</td></tr>
+        <tr><td>Geography</td><td>{{ a.state }}, {{ a.city_tier }}</td></tr>
+        <tr><td>Customer Type</td><td>{{ a.customer_type }}</td></tr>
+        <tr><td>Latest Observation</td><td>{{ a.latest_month }} ({{ a.n_months_observed }} months on record)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card" style="border-left:4px solid {{ 'var(--red)' if a.risk_band.label in ['High','Very High'] else 'var(--green)' }};">
+    <h2>Model Score</h2>
+    <p style="font-size:32px; font-weight:800; margin:4px 0;">{{ (a.predicted_probability * 100) | round(1) }}%</p>
+    <p style="margin:0 0 10px;">
+      <span class="badge {{ 'badge-red' if a.risk_band.label in ['High','Very High'] else ('badge-amber' if a.risk_band.label == 'Medium' else 'badge-green') }}">{{ a.risk_band.label }}</span>
+      &nbsp;Percentile {{ a.percentile }} of OOT accounts
+    </p>
+    <p style="color:var(--text-muted); font-size:13px;">{{ a.risk_band.action }}</p>
+    <p style="color:var(--text-muted); font-size:12px;">Scored live by the same trained model used throughout this app, from this account's most recent observation.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>What's Driving This Score</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    How this account's own values compare to the portfolio median, standardized so features on different
+    scales (currency, ratios, counts) are comparable. Positive = pushing risk up; negative = protective.
+  </p>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Feature</th><th>This Account</th><th>Portfolio Median</th><th>Standardized Deviation</th></tr></thead>
+      <tbody>
+        {% for d in a.drivers %}
+        <tr>
+          <td><code>{{ d.feature }}</code></td>
+          <td>{{ d.account_value }}</td>
+          <td>{{ d.portfolio_median }}</td>
+          <td>
+            {% if d.z_score > 0.3 %}<span class="badge badge-red">+{{ d.z_score }}</span>
+            {% elif d.z_score < -0.3 %}<span class="badge badge-green">{{ d.z_score }}</span>
+            {% else %}<span class="badge badge-grey">{{ d.z_score }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Monthly Behavioral Timeline</h2>
+  <div id="chart-timeline" class="chart" style="min-height:380px;"></div>
+</div>
+
+<div class="card">
+  <h2>Monthly History</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Month</th><th>DPD</th><th>Status</th><th>Utilization</th><th>Payment Ratio</th><th>Balance</th><th>Past Due</th><th>Bounce</th><th>Rolls 90+/6m</th></tr></thead>
+      <tbody>
+        {% for r in a.timeline %}
+        <tr>
+          <td>{{ r.month_end_date }}</td>
+          <td>{{ r.dpd }}</td>
+          <td>{{ r.account_status }}</td>
+          <td>{{ (r.utilization_ratio * 100) | round(1) }}%</td>
+          <td>{{ r.payment_ratio }}</td>
+          <td>{{ "{:,.0f}".format(r.current_balance) }}</td>
+          <td>{{ "{:,.0f}".format(r.amount_past_due) }}</td>
+          <td>{% if r.bounce_flag %}<span class="badge badge-amber">Yes</span>{% else %}&mdash;{% endif %}</td>
+          <td>{% if r.roll_to_90p_6m == 1 %}<span class="badge badge-red">Yes</span>{% elif r.roll_to_90p_6m == 0 %}<span class="badge badge-green">No</span>{% else %}<span class="badge badge-grey" title="Outcome window not yet mature">n/a</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% if account %}
+<script>window.ACCOUNT_TIMELINE = {{ account.timeline | tojson }};</script>
+<script src="{{ url_for('static', filename='js/account.js') }}"></script>
+{% endif %}
+{% endblock %}

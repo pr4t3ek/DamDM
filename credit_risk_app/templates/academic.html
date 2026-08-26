@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Academic Interpretation{% endblock %}
+{% block page_title %}Academic Interpretation{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Academic Interpretation</h1>
+  <p>The reasoning behind every major methodology choice in this project, grounded in this project's
+    own numbers rather than textbook generalities &mdash; the questions a viva or interview is likely to ask.</p>
+</div>
+
+<div class="card">
+  <h2>Why Is This a Classification Problem?</h2>
+  <p>
+    The business question &mdash; "will this account roll to 90+ DPD in the next 6 months?" &mdash; has a binary
+    answer, so <code>roll_to_90p_6m</code> is a binary label and this is supervised binary classification,
+    not regression (which would fit if predicting, say, the exact DPD value) or clustering (no labels
+    would be used at all).
+  </p>
+</div>
+
+<div class="card">
+  <h2>Why Time-Based Validation Is Required</h2>
+  <p>
+    Two properties of this data make a random train/test split actively misleading:
+  </p>
+  <ul>
+    <li><strong>The target looks forward in time.</strong> A random split can place an account's March
+      observation in training and its own April observation in test &mdash; the model would effectively see
+      the future.</li>
+    <li><strong>The data is panel data</strong>, not independent rows: the same <code>trade_id</code> appears
+      in {{ "%.1f"|format(summary.row_count / summary.n_trades) }} monthly observations on average.
+      Consecutive months of the same account are highly correlated, so random assignment leaks account
+      identity across the split even without leaking the future directly.</li>
+  </ul>
+  <p style="color:var(--text-muted); font-size:13.5px;">
+    This project's split: train on {{ "{:,}".format(models[0].metrics.train.n) if models else '' }}
+    observations through 2024-11, validate through 2025-04, test out-of-time on 2025-05&ndash;2025-09
+    &mdash; see the OOT Split Simulator. A further {{ "{:,}".format(maturity.immature_rows) }} rows
+    ({{ maturity.first_immature_month }} onward) are excluded entirely because their 6-month outcome
+    window isn't complete yet &mdash; the Data Quality Dashboard flags this as a right-censoring issue,
+    not ordinary missingness.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Why AUC Alone Is Insufficient</h2>
+  <p>
+    AUC summarizes ranking quality averaged across the <em>entire</em> score range &mdash; including the
+    large middle of the population a collections team will never act on. The actual decision this model
+    supports is narrower: "given capacity to contact only the riskiest 10-20% of accounts, how many
+    genuine bads does that capture?" That is exactly what top-decile capture and KS measure and AUC does
+    not directly answer. In this project, all four models happen to rank consistently on both AUC and
+    top-decile capture, but that's not guaranteed in general &mdash; a model can have a higher AUC while
+    being less useful for a fixed-capacity queue if its advantage comes from separating already-safe
+    accounts in the middle of the distribution rather than sharpening the top of the ranking.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Why Gini, KS, and Top-Decile Capture Matter Here</h2>
+    <ul>
+      <li><strong>Gini</strong> (= 2&times;AUC &minus; 1) is the same ranking information as AUC, rescaled to
+        the 0-1 convention credit risk teams use.</li>
+      <li><strong>KS</strong> finds the single score threshold where good and bad accounts separate most &mdash;
+        the natural place to set an operating cutoff.</li>
+      <li><strong>Top-decile capture</strong> answers the direct operational question above and is the metric
+        the Model Screening page actually recommends on.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Why Class Imbalance Matters</h2>
+    <p>
+      Only <strong>{{ summary.kpis.roll_90p_6m_rate }}%</strong> of observations are positive. A model
+      optimizing plain accuracy could score {{ (100 - summary.kpis.roll_90p_6m_rate) | round(1) }}% just by
+      predicting "no roll" for everyone &mdash; useless for this purpose. Every model here is trained with
+      <code>class_weight="balanced"</code> (or <code>scale_pos_weight</code> for XGBoost) specifically so the
+      rare positive class isn't drowned out, and evaluation leans on rank-based metrics (AUC/KS/decile
+      capture) rather than accuracy, which stays uninformative under imbalance regardless of threshold.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Why Behavioral (Engineered) Features Matter</h2>
+  <p>
+    A single snapshot says what an account looks like <em>now</em>; it can't say whether that's an
+    improvement or a slide. The Feature Engineering Lab's own signal-strength check makes this concrete:
+    the strongest engineered features are all trailing-window aggregates &mdash;
+    {% for n, c in top_rolling %}<code>{{ n }}</code> (r={{ "%+.3f"|format(c) }}){% if not loop.last %}, {% endif %}{% endfor %}
+    &mdash; while single-month deltas are close to noise:
+    {% for n, c in weakest_delta %}<code>{{ n }}</code> (r={{ "%+.3f"|format(c) }}){% if not loop.last %}, {% endif %}{% endfor %}.
+    Accumulated behavior over a trailing window predicts serious delinquency far better than any one-step
+    change, which is also why <code>dpd_avg_3m</code> and <code>dpd_max_3m</code> lead every feature
+    importance ranking on the Explainability page.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Why Model Interpretability Matters</h2>
+  <p>
+    This project deliberately builds both an interpretable baseline (Logistic Regression, coefficients
+    readable as odds ratios) and a higher-performing but less transparent challenger (XGBoost) &mdash; the
+    champion/challenger pattern standard in credit risk. Interpretability isn't just an academic nicety
+    here: a reviewer or regulator needs to see <em>why</em> an account was flagged, which is what the
+    Explainability page's SHAP reason codes provide even for the black-box challenger. In this project
+    the gap is small enough to make that trade-off real: Logistic Regression reaches
+    {{ models[0].metrics.test.auc if models else '' }} OOT AUC against
+    {{ models[-1].metrics.test.auc if models else '' }} for {{ models[-1].display_name if models else '' }}
+    &mdash; close enough that interpretability is a legitimate reason to prefer the simpler model in a
+    context where that matters more than the last few points of lift.
+  </p>
+</div>
+{% endblock %}

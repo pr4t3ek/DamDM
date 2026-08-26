@@ -12,6 +12,47 @@
   </p>
 </div>
 
+{% if model_governance %}
+{% set mg = model_governance %}
+<div class="card" style="border-left: 4px solid var(--accent);">
+  <h2>Model Governance</h2>
+  <p style="color: var(--text-muted); font-size: 13.5px; margin-top: -6px;">
+    Version, methodology, and scope for the model currently deployed across this app &mdash; the record a
+    reviewer or auditor would ask for first.
+  </p>
+  <div class="grid-2">
+    <table class="data-table">
+      <tbody>
+        <tr><td>Target</td><td><code>{{ primary_target }}</code> &mdash; rolls to 90+ DPD within {{ mg.maturity.horizon_months }} months</td></tr>
+        <tr><td>Prediction window</td><td>{{ mg.maturity.horizon_months }} months forward from the observation month</td></tr>
+        <tr><td>Observation grain</td><td>One row per trade-month (account-month)</td></tr>
+        <tr><td>Feature count</td><td>{{ mg.n_features }} (18 base + 19 engineered behavioral features)</td></tr>
+        <tr><td>Model</td><td>{{ mg.model_name }} (<code>{{ mg.model_key }}</code>), selected by OOT top-decile capture + KS</td></tr>
+        <tr><td>Trained</td><td>{{ mg.trained_at }}</td></tr>
+      </tbody>
+    </table>
+    <table class="data-table">
+      <tbody>
+        <tr><td>Dataset version</td><td>{{ "{:,}".format(summary.row_count) }} rows, {{ summary.date_min }} &ndash; {{ summary.date_max }}</td></tr>
+        <tr><td>Training window</td><td>{{ mg.split.train_start }} &ndash; {{ mg.split.train_end }}</td></tr>
+        <tr><td>Validation window</td><td>{{ mg.split.valid_start }} &ndash; {{ mg.split.valid_end }}</td></tr>
+        <tr><td>OOT test window</td><td>{{ mg.split.test_start }} &ndash; {{ mg.split.test_end }}</td></tr>
+        <tr><td>Excluded (right-censored)</td><td>{{ mg.maturity.first_immature_month }} &ndash; {{ mg.maturity.data_max_month }} ({{ "{:,}".format(mg.maturity.immature_rows) }} rows)</td></tr>
+        <tr><td>Validation methodology</td><td>Chronological (out-of-time) split; never random</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3 style="margin-top:16px;">Assumptions &amp; Limitations</h3>
+  <ul style="font-size: 13.5px; color: var(--text-muted); margin: 0;">
+    <li>Source data is an explicitly synthetic/case-study dataset (see the data dictionary's own framing), not live production data &mdash; treat all figures as illustrative of methodology, not a real portfolio.</li>
+    <li>The model is trained with balanced class weights to handle the ~9.6% base rate; raw predicted probabilities are ranking-optimized, not calibrated to real-world likelihood (see Baseline Model page) &mdash; use percentile rank or decile, not the raw percentage, for absolute risk statements.</li>
+    <li>Portfolio Scenario Simulator shocks are simplified (they update the shocked field and its direct 3-month rolling counterpart only, not a full account rebuild).</li>
+    <li>No demographic/protected-class fields were available in this mart to test for disparate impact; a production deployment would need that analysis before use in any customer-facing decision.</li>
+    <li>Recommended use is an early-warning prioritization signal for collections outreach, not an autonomous credit or account-action decision.</li>
+  </ul>
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Final Modeling Feature Set <span class="badge badge-green">{{ feature_cols | length }} features</span></h2>
   <p style="color: var(--text-muted); font-size: 13.5px; margin-top: -6px;">

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Business Problem{% endblock %}
+{% block page_title %}Business Problem{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Why Serious Delinquency Prediction Matters</h1>
+  <p>
+    Across {{ "{:,}".format(summary.row_count) }} account-months, {{ summary.kpis.roll_90p_6m_rate }}%
+    eventually roll into 90+ DPD within six months. This page explains the vocabulary and the business
+    case before the data itself takes over on later pages.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>What is DPD?</h2>
+    <p><strong>Days Past Due</strong> &mdash; how many days an account has gone without a required payment
+      being made. It resets toward zero whenever the account catches up, and climbs whenever a scheduled
+      payment is missed.</p>
+    <h2 style="margin-top:18px;">What is delinquency?</h2>
+    <p>An account is delinquent once it has any amount past due &mdash; DPD &gt; 0. Delinquency is a spectrum,
+      not a single event: early delinquency (a few days late) is common and often self-resolves; serious
+      delinquency (90+ DPD) rarely does.</p>
+  </div>
+  <div class="card">
+    <h2>What does "roll" mean?</h2>
+    <p>An account <strong>rolls</strong> when it moves from one delinquency stage to a worse one &mdash;
+      Current to 30+ DPD, or 30+ to 90+ DPD. <code>roll_to_90p_6m</code> asks a forward-looking question:
+      starting from wherever the account is today, does it roll all the way to 90+ DPD within the next six
+      months?</p>
+    <h2 style="margin-top:18px;">Why 90+ DPD specifically?</h2>
+    <p>90+ DPD is the industry-standard threshold for <strong>serious delinquency</strong> &mdash; the point
+      where recovery becomes materially harder, provisioning requirements typically kick in, and an account
+      is functionally in or near default. It is a meaningful line, not an arbitrary one.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Why predict this early, and what does a bank do with it?</h2>
+  <div class="grid-2" style="gap:20px;">
+    <div>
+      <h3>Reactive collections (without a model)</h3>
+      <p style="color: var(--text-muted);">Collections acts only after an account is already 30+ or 60+ DPD.
+        By then the borrower may already be in serious financial stress, contact rates drop, and recovery
+        costs rise. The bank is always one step behind the account's own trajectory.</p>
+    </div>
+    <div>
+      <h3>Proactive early warning (with this model)</h3>
+      <p style="color: var(--text-muted);">Accounts still Current or only mildly delinquent, but showing
+        deteriorating behavior &mdash; rising utilization, thinning payment ratios, recent bounces &mdash; get
+        flagged before the roll happens. That opens the door to softer, cheaper interventions: a payment
+        reminder, a restructuring offer, a credit-line adjustment.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Delinquency Stages, by the Numbers</h2>
+  <table class="data-table">
+    <thead><tr><th>Stage</th><th>Description</th><th>Share of Observations</th><th>Roll Rate (next 6m)</th></tr></thead>
+    <tbody>
+      {% for s in stages %}
+      <tr>
+        <td><strong>{{ s.label }}</strong></td>
+        <td style="white-space: normal;">{{ s.description }}</td>
+        <td>{{ s.share }}%</td>
+        <td>{% if s.roll_rate is not none %}<strong>{{ s.roll_rate }}%</strong>{% else %}&mdash;{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="chart-note">
+    See the <a href="{{ url_for('journey.index') }}">Credit Risk Journey</a> page for the full visual stage
+    flow and an interactive cohort simulator.
+  </p>
+</div>
+{% endblock %}

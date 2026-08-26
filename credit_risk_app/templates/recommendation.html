@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Final Recommendation{% endblock %}
+{% block page_title %}Final Recommendation{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Final Recommendation</h1>
+  <p>The executive summary: what to deploy, how well it performs, what drives it, where to set the
+    operating point, and what it should &mdash; and shouldn't &mdash; be used for.</p>
+</div>
+
+<div class="card" style="border-left:4px solid var(--accent);">
+  <h2>Best Model: {{ model_name }}</h2>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">OOT AUC</div><div class="kpi-value">{{ test.auc }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gini</div><div class="kpi-value">{{ test.gini }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">KS</div><div class="kpi-value">{{ test.ks.ks }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Top-Decile Capture</div><div class="kpi-value">{{ test.top_decile_capture }}%</div></div>
+  </div>
+  <p style="color:var(--text-muted); font-size:13.5px;">
+    Selected over the other 3 candidates on top-decile capture and KS &mdash; the metrics that map directly
+    to a fixed-capacity collections queue &mdash; not raw AUC alone. See Model Screening for the full
+    comparison.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Strongest Risk Drivers</h2>
+  <div class="pill-list">
+    {% for d in drivers %}<span class="pill">{{ d.readable }}</span>{% endfor %}
+  </div>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:10px;">
+    Led by 3-month rolling DPD (average and maximum) and product type &mdash; confirmed independently by
+    native gain-based importance, permutation importance, and SHAP on the Explainability page. No
+    identifier or leakage-risk field appears in this list.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Recommended Operating Threshold</h2>
+  <p style="margin-top:-4px;">
+    <strong>Start at {{ recommended.capacity_pct }}% collection capacity</strong> &mdash; contact the
+    {{ "{:,}".format(recommended.accounts_contacted) }} highest-risk accounts each cycle. That captures
+    <strong>{{ recommended.capture_rate }}%</strong> of all accounts that will actually roll to 90+ DPD,
+    at {{ recommended.precision }}% precision (roughly 1 in {{ (100 / recommended.precision) | round(1) }}
+    contacted accounts is a genuine future bad). This is a starting point, not a fixed rule &mdash; scale up
+    or down with actual collections capacity using the table below.
+  </p>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Capacity</th><th>Accounts Contacted</th><th>Bad Accounts Captured</th><th>Capture Rate</th><th>Precision</th><th>Exposure Covered</th></tr></thead>
+      <tbody>
+        {% for c in curve %}
+        <tr {{ 'style="background:#eef4ff;"' if c.capacity_pct == recommended.capacity_pct }}>
+          <td><strong>{{ c.capacity_pct }}%</strong></td>
+          <td>{{ "{:,}".format(c.accounts_contacted) }}</td>
+          <td>{{ "{:,}".format(c.bad_accounts_captured) }}</td>
+          <td>{{ c.capture_rate }}%</td>
+          <td>{{ c.precision }}%</td>
+          <td>{{ c.exposure_covered_pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="border-left:4px solid var(--red);">
+  <h2>Key Business Recommendation</h2>
+  <p style="margin-top:-4px;">
+    Use {{ model_name }} as an <strong>early-warning prioritization signal for proactive collections
+    outreach</strong> &mdash; ranking active accounts by risk of rolling to serious delinquency within 6
+    months so limited collections capacity is spent on the accounts most likely to need it &mdash;
+    <strong>not as an autonomous credit or account-action decision</strong>. The model's probabilities are
+    ranking-optimized (via balanced class weights), not calibrated to true likelihood, and no
+    demographic/fairness analysis was performed on this dataset; any customer-facing or credit-decisioning
+    use would need both before deployment. Within that scope &mdash; a decision-support ranking that a human
+    collections team acts on &mdash; {{ recommended.capture_rate }}% capture at {{ recommended.capacity_pct }}%
+    capacity represents a substantial, actionable improvement over undirected outreach.
+  </p>
+</div>
+{% endblock %}

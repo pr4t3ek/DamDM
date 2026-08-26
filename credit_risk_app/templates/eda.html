@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Exploratory Data Analysis{% endblock %}
+{% block page_title %}Exploratory Data Analysis{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Exploratory Data Analysis</h1>
+  <p>
+    Seven analysis views over all {{ "{:,}".format(summary.row_count) }} trade-month observations.
+    Every chart is computed live from the dataset and recalculates when filters change &mdash;
+    nothing here is hardcoded. "Roll rate" throughout means the share of observations where
+    <code>roll_to_90p_6m = 1</code>.
+  </p>
+</div>
+
+<div class="card">
+  <form id="eda-filters" class="filters-bar" style="margin-bottom:0;">
+    <select name="product"><option value="">All products</option>
+      {% for p in options.products %}<option value="{{ p }}">{{ p }}</option>{% endfor %}</select>
+    <select name="lender_id"><option value="">All lenders</option>
+      {% for l in options.lenders %}<option value="{{ l }}">{{ l }}</option>{% endfor %}</select>
+    <select name="customer_type"><option value="">All customer types</option>
+      {% for c in options.customer_types %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+    <select name="city_tier"><option value="">All city tiers</option>
+      {% for c in options.city_tiers %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+    <input type="date" name="date_from" min="{{ summary.date_min }}" max="{{ summary.date_max }}">
+    <input type="date" name="date_to" min="{{ summary.date_min }}" max="{{ summary.date_max }}">
+    <button type="submit" class="btn btn-primary">Apply filters</button>
+    <button type="reset" class="btn">Reset</button>
+  </form>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="target">6.1 Target</button>
+  <button class="tab-btn" data-tab="delinquency">6.2 Delinquency</button>
+  <button class="tab-btn" data-tab="payment">6.3 Payment Behaviour</button>
+  <button class="tab-btn" data-tab="utilization">6.4 Utilization</button>
+  <button class="tab-btn" data-tab="affordability">6.5 Affordability</button>
+  <button class="tab-btn" data-tab="portfolio">6.6 Customer &amp; Portfolio</button>
+  <button class="tab-btn" data-tab="correlation">6.7 Correlation</button>
+</div>
+
+<div class="tab-panel active" id="panel-target">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Observations</div><div class="kpi-value" id="target-n">&mdash;</div></div>
+    <div class="kpi-card"><div class="kpi-label">Events (rolls to 90+)</div><div class="kpi-value" id="target-events">&mdash;</div></div>
+    <div class="kpi-card"><div class="kpi-label">Non-events</div><div class="kpi-value" id="target-nonevents">&mdash;</div></div>
+    <div class="kpi-card"><div class="kpi-label">Event Rate</div><div class="kpi-value" id="target-rate">&mdash;</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><h2>Class Distribution</h2><div id="chart-target-class" class="chart"></div></div>
+    <div class="card"><h2>Roll Rate by Product</h2><div id="chart-target-product" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Monthly Roll Rate Over Time</h2><div id="chart-target-monthly" class="chart"></div>
+    <p class="chart-note">Watch for drift: a roll rate that trends over time is exactly why validation must be out-of-time rather than random.</p></div>
+</div>
+
+<div class="tab-panel" id="panel-delinquency">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="card"><h2>DPD Distribution and Risk by Bucket</h2><div id="chart-dpd-dist" class="chart"></div>
+    <p class="chart-note">Current DPD is the single strongest observable signal &mdash; roll rate rises monotonically across buckets.</p></div>
+  <div class="grid-2">
+    <div class="card"><h2>Account Status</h2><div id="chart-status-dist" class="chart"></div></div>
+    <div class="card"><h2>Amount Past Due</h2><div id="chart-apd-hist" class="chart"></div></div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-payment">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Bounce Rate</div><div class="kpi-value" id="payment-bounce-rate">&mdash;</div><div class="kpi-sub">Share of observations with bounce_flag = 1</div></div>
+    <div class="kpi-card"><div class="kpi-label">Partial Payment Rate</div><div class="kpi-value" id="payment-partial-rate">&mdash;</div><div class="kpi-sub">Share with partial_payment_flag = 1</div></div>
+  </div>
+  <div class="card"><h2>Risk Rate by Payment Ratio Bucket</h2><div id="chart-payment-buckets" class="chart"></div>
+    <p class="chart-note">Payment ratio is inversely related to risk: accounts paying under half of what is due roll far more often.</p></div>
+  <div class="grid-2">
+    <div class="card"><h2>Payment Ratio Distribution</h2><div id="chart-payment-ratio-hist" class="chart"></div></div>
+    <div class="card"><h2>Recent Bounce Count (3m)</h2><div id="chart-bounce-count" class="chart"></div></div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-utilization">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="card"><h2>Roll Rate by Utilization Bucket</h2><div id="chart-util-buckets" class="chart"></div></div>
+  <div class="grid-2">
+    <div class="card"><h2>Utilization Distribution</h2><div id="chart-util-hist" class="chart"></div></div>
+    <div class="card"><h2>Average DPD by Utilization Bucket</h2><div id="chart-util-dpd" class="chart"></div></div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-affordability">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="grid-2">
+    <div class="card"><h2>Balance-to-Income Ratio</h2><div id="chart-bti-hist" class="chart"></div></div>
+    <div class="card"><h2>EMI Due</h2><div id="chart-emi-hist" class="chart"></div></div>
+    <div class="card"><h2>Current Balance</h2><div id="chart-balance-hist" class="chart"></div></div>
+    <div class="card"><h2>EAD Estimate</h2><div id="chart-ead-hist" class="chart"></div>
+      <p class="chart-note">EAD is shown for portfolio context only &mdash; it is excluded from the modeling feature set (see Leakage &amp; Governance).</p></div>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-portfolio">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="grid-2">
+    <div class="card"><h2>Roll Rate by Product</h2><div id="chart-pf-product" class="chart"></div></div>
+    <div class="card"><h2>Roll Rate by Customer Type</h2><div id="chart-pf-ctype" class="chart"></div></div>
+    <div class="card"><h2>Roll Rate by City Tier</h2><div id="chart-pf-tier" class="chart"></div></div>
+    <div class="card"><h2>Roll Rate by Lender</h2><div id="chart-pf-lender" class="chart"></div></div>
+  </div>
+  <div class="card"><h2>Roll Rate by State (top 15 by volume)</h2><div id="chart-pf-state" class="chart"></div></div>
+  <div class="card"><h2>Roll Rate by Months on Book</h2><div id="chart-pf-mob" class="chart"></div></div>
+</div>
+
+<div class="tab-panel" id="panel-correlation">
+  <div class="panel-loading">Computing&hellip;</div>
+  <div class="card">
+    <h2>Variable vs. Target Explorer</h2>
+    <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+      Pick any variable to see how roll rate varies across its range. Numeric variables are split into
+      equal-sized bins; categorical variables are shown by category.
+    </p>
+    <select id="var-select" style="padding:7px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; margin-bottom:14px;">
+      <optgroup label="Numeric">
+        {% for v in numeric_vars %}<option value="{{ v }}" {{ 'selected' if v == 'dpd' }}>{{ v }}</option>{% endfor %}
+      </optgroup>
+      <optgroup label="Categorical">
+        {% for v in categorical_vars %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </optgroup>
+    </select>
+    <div id="chart-var-target" class="chart"></div>
+  </div>
+  <div class="card"><h2>Correlation Heatmap</h2><div id="chart-corr" class="chart"></div>
+    <p class="chart-note">
+      Pearson correlation across numeric features and the target. Strong pairwise correlation between
+      features (e.g. balance and EAD) signals redundancy to address in feature selection.
+    </p></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.EDA_DATA_URL = "{{ url_for('eda.index') }}data";
+  window.EDA_VAR_URL = "{{ url_for('eda.index') }}data/variable";
+</script>
+<script src="{{ url_for('static', filename='js/eda.js') }}"></script>
+{% endblock %}

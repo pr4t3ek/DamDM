@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+{% block title %}Baseline Model{% endblock %}
+{% block page_title %}Baseline Model — Logistic Regression{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Baseline Model: Logistic Regression</h1>
+  <p>
+    The interpretable champion. Every candidate feature enters as-is (categoricals one-hot encoded,
+    numerics standardized), fit with balanced class weights to counter the {{ 100 - (model.metrics.train.event_rate if model.metrics.train else 0) }}%
+    / {{ model.metrics.train.event_rate if model.metrics.train else 0 }}% class split. Trained on
+    {{ split.train_start }}&ndash;{{ split.train_end }}, validated on {{ split.valid_start }}&ndash;{{ split.valid_end }},
+    tested out-of-time on {{ split.test_start }}&ndash;{{ split.test_end }}.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Performance by Period</h2>
+  {{ macros.metrics_table(model.metrics) }}
+  <p class="chart-note">
+    The OOT test row is what matters &mdash; training/validation performance can look better purely from
+    fitting to in-sample patterns that don't generalize forward in time.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Confusion Matrix</h2>
+    {{ macros.confusion_matrix(model.metrics.test.confusion_matrix, 0.5) }}
+  </div>
+  <div class="card">
+    <h2>In Business Language</h2>
+    <ul>
+      {% for s in explanations %}<li style="margin-bottom:8px;">{{ s }}</li>{% endfor %}
+    </ul>
+    <p style="color:var(--text-muted); font-size:12.5px;">
+      Coefficients are on standardized numeric features, so "per standard deviation" is the correct unit &mdash;
+      not "per unit increase."
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Features Used</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    {{ feature_cols.all | length }} inputs: {{ feature_cols.categorical | length }} categorical (one-hot encoded)
+    + {{ feature_cols.numeric | length }} numeric (standardized). Same feature set used by every model on this page's
+    sibling pages, for a fair comparison.
+  </p>
+  <div class="pill-list">
+    {% for f in feature_cols.all %}<span class="pill">{{ f }}</span>{% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Coefficients &amp; Odds Ratios</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    Top 30 by |coefficient|, on the transformed (one-hot + standardized) feature space. An odds ratio above 1
+    means the feature increases predicted risk; below 1 means it's protective.
+  </p>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Feature</th><th>Coefficient</th><th>Odds Ratio</th><th>Direction</th></tr></thead>
+      <tbody>
+        {% for c in model.coefficients %}
+        <tr>
+          <td><code>{{ c.feature }}</code></td>
+          <td>{{ "%+.4f" % c.coefficient }}</td>
+          <td>{{ c.odds_ratio }}x</td>
+          <td>{% if c.coefficient > 0 %}<span class="badge badge-red">Raises risk</span>{% else %}<span class="badge badge-green">Protective</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

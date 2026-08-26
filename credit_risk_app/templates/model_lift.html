@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Lift & Gains{% endblock %}
+{% block page_title %}Lift & Gains{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Lift &amp; Gains</h1>
+  <p>Directly answers: <strong>"If collections can act on only 10% of accounts, how many future bad
+    accounts can we capture?"</strong> &mdash; ranked by {{ model.display_name }}'s predicted risk on the
+    out-of-time test period.</p>
+</div>
+
+<div class="tab-bar">
+  {% for key, m in models.items() %}
+  <a href="{{ url_for('model_lift.index', model=key) }}" class="tab-btn {{ 'active' if key == selected }}" style="text-decoration:none;">{{ m.display_name }}</a>
+  {% endfor %}
+</div>
+
+<div class="card" style="border-left:4px solid var(--accent);">
+  <h2>Top 10% Capture</h2>
+  <p style="font-size:32px; font-weight:800; margin:4px 0;">{{ decile_table[0].capture_rate }}%</p>
+  <p style="color:var(--text-muted); margin:0;">
+    of every account that actually rolls to 90+ DPD within 6 months is found inside the riskiest
+    {{ decile_table[0].accounts | int }} accounts ({{ decile_table[0].bad_accounts }} of them true positives) &mdash;
+    a <strong>{{ decile_table[0].lift }}x lift</strong> over acting on a random 10% of the portfolio.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Lift Curve</h2>
+    <div id="chart-lift" class="chart"></div>
+    <p class="chart-note">Lift = decile bad rate &divide; overall bad rate. A flat line at 1.0 would mean no better than random.</p>
+  </div>
+  <div class="card">
+    <h2>Cumulative Gains Curve</h2>
+    <div id="chart-gains" class="chart"></div>
+    <p class="chart-note">The diagonal is the no-model baseline. The further above it, the more efficiently risk is concentrated at the top of the ranking.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Decile Table (OOT Test)</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Decile</th><th>Accounts</th><th>Bad Accounts</th><th>Bad Rate</th><th>Cumulative Bads</th><th>Capture Rate</th><th>Lift</th></tr></thead>
+      <tbody>
+        {% for r in decile_table %}
+        <tr {{ 'style="background:#fdecea;"' if r.decile == 1 else '' }}>
+          <td><strong>{{ r.decile }}</strong>{% if r.decile == 1 %} <span class="badge badge-red">Top 10%</span>{% endif %}</td>
+          <td>{{ "{:,}".format(r.accounts) }}</td>
+          <td>{{ "{:,}".format(r.bad_accounts) }}</td>
+          <td>{{ r.bad_rate }}%</td>
+          <td>{{ "{:,}".format(r.cumulative_bads) }}</td>
+          <td><strong>{{ r.capture_rate }}%</strong></td>
+          <td>{{ r.lift }}x</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>window.DECILE_TABLE = {{ decile_table | tojson }};</script>
+<script src="{{ url_for('static', filename='js/model_lift.js') }}"></script>
+{% endblock %}

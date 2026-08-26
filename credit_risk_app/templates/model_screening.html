@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Model Screening{% endblock %}
+{% block page_title %}Model Screening{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Model Screening</h1>
+  <p>All four models, compared on the out-of-time test period only &mdash; the one number that reflects
+    how each would actually perform going forward.</p>
+</div>
+
+<div class="card">
+  <h2>Comparison Table</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th>Model</th><th>OOT AUC</th><th>Gini</th><th>KS</th><th>Top-Decile Capture</th><th>Precision@10%</th><th>Recall @0.5</th><th>Precision @0.5</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr {{ 'style="background:#eef4ff;"' if r.key == recommended_key else '' }}>
+          <td>
+            <strong>{{ r.display_name }}</strong>
+            {% if r.key == recommended_key %}<span class="badge badge-green" style="margin-left:6px;">Recommended</span>{% endif %}
+            {% if r.key == best_key and r.key != recommended_key %}<span class="badge badge-grey" style="margin-left:6px;">Highest AUC</span>{% endif %}
+          </td>
+          <td><strong>{{ r.auc }}</strong></td>
+          <td>{{ r.gini }}</td>
+          <td>{{ r.ks }}</td>
+          <td><strong>{{ r.top_decile_capture }}%</strong></td>
+          <td>{{ r.precision_at_10 }}%</td>
+          <td>{{ r.recall }}</td>
+          <td>{{ r.precision }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--accent);">
+  <h2>Why {{ recommended.display_name }}, Not Just the Highest AUC</h2>
+  <p style="margin-top:-4px;">
+    This dataset's own validation focus (see the data dictionary) is out-of-time AUC, Gini, KS,
+    <strong>top-decile capture, and operational queue usefulness</strong> &mdash; not raw accuracy. A
+    collections team acting on a fixed capacity cares most about how many bad accounts land in the
+    top of the ranked list, which is exactly what top-decile capture and KS measure.
+    <strong>{{ recommended.display_name }}</strong> leads on both:
+    it captures <strong>{{ recommended.top_decile_capture }}%</strong> of all accounts that actually roll
+    to 90+ DPD within just the riskiest 10% of the portfolio (KS = {{ recommended.ks }}).
+  </p>
+  <p style="color:var(--text-muted); font-size:13.5px;">
+    If interpretability or regulatory explainability matters more than the last few points of lift,
+    the Logistic Regression baseline remains a legitimate choice &mdash; its OOT AUC ({{ rows[0].auc }}) is
+    close behind. This is a judgment call for the business, not a purely statistical one.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>OOT AUC by Model</h2>
+    <div id="chart-auc" class="chart"></div>
+  </div>
+  <div class="card">
+    <h2>Top-Decile Capture by Model</h2>
+    <div id="chart-capture" class="chart"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>window.SCREENING_ROWS = {{ rows | tojson }};</script>
+<script src="{{ url_for('static', filename='js/model_screening.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Feature Engineering{% endblock %}
+{% block page_title %}Behavioral Feature Engineering Lab{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Behavioral Feature Engineering Lab</h1>
+  <p>
+    A single monthly snapshot says what an account looks like now. These
+    <strong>{{ cache.n_features }} derived features</strong> say where it is <em>heading</em> &mdash; whether it is
+    deteriorating, how erratic its repayment is, and how much stress it has accumulated &mdash; computed per
+    <code>trade_id</code> over a trailing {{ cache.window_months }}-month window across all
+    {{ "{:,}".format(cache.n_rows) }} observations.
+  </p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">Features Generated</div><div class="kpi-value">{{ cache.n_features }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Feature Families</div><div class="kpi-value">{{ cache.families | length }}</div><div class="kpi-sub">{{ cache.families.keys() | join(', ') }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Rolling Window</div><div class="kpi-value">{{ cache.window_months }} months</div><div class="kpi-sub">Trailing, includes current month</div></div>
+  <div class="kpi-card"><div class="kpi-label">Rows Computed</div><div class="kpi-value">{{ "{:,}".format(cache.n_rows) }}</div></div>
+</div>
+
+<div class="card" style="border-left: 4px solid var(--green);">
+  <h2>Why these features are leakage-free</h2>
+  <p style="margin-top:-4px;">
+    Every window is <strong>trailing</strong>: a rolling average covers the observation month and the two before
+    it, and a change is measured against the previous month. Nothing reaches forward past the observation date, so
+    these satisfy the data dictionary's rule &mdash; <em>"use only information available on or before the observation
+    date."</em> No target column is touched during construction.
+  </p>
+  <p style="color: var(--text-muted); font-size:13px;">
+    An account's first observation has no prior month, so its trend and volatility features are left as
+    <code>null</code> rather than filled with zero &mdash; "unknown" and "no change" are different states, and the
+    model should be able to tell them apart.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Signal Strength</h2>
+  <p style="color: var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    Correlation of each feature with <code>roll_to_90p_6m</code>. A diagnostic to see which derivations carry
+    signal &mdash; not a model, and not a substitute for the feature importances that come with training.
+  </p>
+  <div id="chart-signal" class="chart"></div>
+  <p class="chart-note">
+    Note the pattern: <strong>rolling and stress features carry far more signal than single-month deltas</strong>.
+    A one-month change in DPD is close to noise, while the 3-month average, the running maximum, and the count of
+    delinquent months are among the strongest. Accumulated behavior predicts better than a single step.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Feature Dictionary</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Feature</th><th>Family</th><th>Meaning</th><th>Missing</th><th>Mean</th><th>Range</th><th>Corr. with target</th></tr></thead>
+      <tbody>
+        {% for name, f in cache.features.items() %}
+        <tr>
+          <td><code>{{ name }}</code></td>
+          <td><span class="badge badge-grey">{{ f.family }}</span></td>
+          <td style="white-space: normal; min-width: 280px;">{{ f.description }}</td>
+          <td>{{ f.missing_pct }}%</td>
+          <td>{{ f.mean }}</td>
+          <td style="color: var(--text-muted);">{{ f.min }} &ndash; {{ f.max }}</td>
+          <td>{% if f.target_corr is not none %}<strong>{{ "%+.4f" % f.target_corr }}</strong>{% else %}&mdash;{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Inspect Sample Values</h2>
+  <p style="color: var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    Monthly feature values for a single account, so you can trace how each derivation was computed.
+  </p>
+  <form id="sample-form" class="filters-bar">
+    <input type="text" name="trade_id" placeholder="Trade ID (e.g. {{ sample_trade_id }})">
+    <button type="submit" class="btn btn-primary">Load account</button>
+  </form>
+  <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">
+    Showing: <code id="sample-label">{{ sample_trade_id }}</code>
+  </div>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th>Month</th>{% for n in feature_names %}<th>{{ n }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody id="sample-tbody">
+        {% for r in sample_rows %}
+        <tr>
+          <td>{{ r.month_end_date }}</td>
+          {% for n in feature_names %}<td>{{ r[n] if r[n] is not none else '—' }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.FEATURE_CACHE = {{ cache.features | tojson }};
+  window.FEATURE_NAMES = {{ feature_names | tojson }};
+  window.SAMPLE_URL = "{{ url_for('features.sample') }}";
+</script>
+<script src="{{ url_for('static', filename='js/features.js') }}"></script>
+{% endblock %}

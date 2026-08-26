@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Scenario{% endblock %}
+{% block page_title %}Portfolio Scenario Simulator{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Portfolio Scenario Simulator</h1>
+  <p>
+    Applies a shock to every account in the {{ "{:,}".format(result.n_accounts) }}-observation OOT test
+    population and re-scores all of them with the real trained model, comparing aggregate risk before
+    and after. A portfolio-wide stress view, not a per-account rebuild &mdash; see
+    <a href="{{ url_for('simulator.index') }}">What-If Simulator</a> for that.
+  </p>
+</div>
+
+<div class="tab-bar">
+  {% for key, s in scenarios.items() %}
+  <a href="{{ url_for('scenario.index', scenario=key) }}" class="tab-btn {{ 'active' if key == selected }}" style="text-decoration:none;">{{ s.label }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>{{ result.label }}</h2>
+  <p style="color:var(--text-muted); margin-top:-4px;">{{ result.description }}</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Mean Predicted Risk</div>
+    <div class="kpi-value">{{ (result.before.mean_probability * 100) | round(1) }}% &rarr; {{ (result.after.mean_probability * 100) | round(1) }}%</div>
+    <div class="kpi-sub">{{ '+' if result.delta.mean_probability_pp >= 0 }}{{ result.delta.mean_probability_pp }} pp</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">High-Risk Accounts</div>
+    <div class="kpi-value">{{ "{:,}".format(result.before.high_risk_accounts) }} &rarr; {{ "{:,}".format(result.after.high_risk_accounts) }}</div>
+    <div class="kpi-sub">{{ '+' if result.delta.high_risk_accounts >= 0 }}{{ "{:,}".format(result.delta.high_risk_accounts) }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Newly High-Risk</div>
+    <div class="kpi-value" style="color:var(--red);">{{ "{:,}".format(result.newly_high_risk_accounts) }}</div>
+    <div class="kpi-sub">Accounts crossing into High/Very High</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Expected Loss Proxy</div>
+    <div class="kpi-value" style="font-size:19px;">{{ '+{:,.0f}'.format(result.delta.expected_loss_proxy) }}</div>
+    <div class="kpi-sub">&sum; predicted risk &times; balance, before vs. after</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>High-Risk Account Count</h2>
+    <div id="chart-highrisk" class="chart"></div>
+  </div>
+  <div class="card">
+    <h2>Collection Workload Impact</h2>
+    <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+      Accounts that would newly require proactive outreach under this scenario &mdash; the direct collections
+      capacity implication of the shock.
+    </p>
+    <div class="kpi-grid" style="grid-template-columns:1fr;">
+      <div class="kpi-card">
+        <div class="kpi-label">Additional Accounts Needing Outreach</div>
+        <div class="kpi-value" style="color:var(--red);">{{ "{:,}".format(result.newly_high_risk_accounts) }}</div>
+        <div class="kpi-sub">{{ (100 * result.newly_high_risk_accounts / result.n_accounts) | round(2) }}% of the OOT portfolio</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Before vs. After, Full Comparison</h2>
+  <table class="data-table">
+    <thead><tr><th></th><th>Before</th><th>After</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td>Mean predicted risk</td><td>{{ (result.before.mean_probability * 100) | round(2) }}%</td><td>{{ (result.after.mean_probability * 100) | round(2) }}%</td><td>{{ result.delta.mean_probability_pp }} pp</td></tr>
+      <tr><td>High-risk accounts</td><td>{{ "{:,}".format(result.before.high_risk_accounts) }} ({{ result.before.high_risk_share }}%)</td><td>{{ "{:,}".format(result.after.high_risk_accounts) }} ({{ result.after.high_risk_share }}%)</td><td>{{ "{:+,}".format(result.delta.high_risk_accounts) }}</td></tr>
+      <tr><td>Expected loss proxy</td><td>{{ "{:,.0f}".format(result.before.expected_loss_proxy) }}</td><td>{{ "{:,.0f}".format(result.after.expected_loss_proxy) }}</td><td>{{ "{:+,.0f}".format(result.delta.expected_loss_proxy) }}</td></tr>
+    </tbody>
+  </table>
+  <p class="chart-note">
+    Expected loss proxy = &sum;(predicted probability &times; current balance) across all OOT accounts &mdash; a
+    simplified exposure-weighted risk figure, not a calibrated PD&times;LGD&times;EAD expected-loss number
+    (this model's probabilities are ranking-optimized via balanced class weights, not calibrated to the true
+    base rate; see the Risk Metrics page for the dataset's own PD/LGD/EAD fields).
+  </p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>window.SCENARIO_RESULT = {{ result | tojson }};</script>
+<script src="{{ url_for('static', filename='js/scenario.js') }}"></script>
+{% endblock %}

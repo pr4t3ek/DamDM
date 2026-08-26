@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}KS Analysis{% endblock %}
+{% block page_title %}KS Analysis{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>KS Analysis</h1>
+  <p>
+    <strong>KS identifies the point where the model best separates risky and non-risky accounts</strong> &mdash;
+    the largest gap between the cumulative distribution of scores for accounts that stayed current and
+    accounts that rolled to 90+ DPD. A KS of 0 means no separation (random); higher is better.
+  </p>
+</div>
+
+<div class="tab-bar">
+  {% for key, m in models.items() %}
+  <a href="{{ url_for('model_ks.index', model=key) }}" class="tab-btn {{ 'active' if key == selected }}" style="text-decoration:none;">{{ m.display_name }}</a>
+  {% endfor %}
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">KS Statistic</div><div class="kpi-value">{{ model.metrics.test.ks.ks }}</div><div class="kpi-sub">{{ model.display_name }}, OOT test</div></div>
+  <div class="kpi-card"><div class="kpi-label">KS Threshold</div><div class="kpi-value">{{ model.metrics.test.ks.threshold }}</div><div class="kpi-sub">Predicted probability at max separation</div></div>
+  <div class="kpi-card"><div class="kpi-label">TPR at KS</div><div class="kpi-value">{{ (model.metrics.test.ks.tpr_at_ks * 100) | round(1) }}%</div><div class="kpi-sub">Bads correctly identified</div></div>
+  <div class="kpi-card"><div class="kpi-label">FPR at KS</div><div class="kpi-value">{{ (model.metrics.test.ks.fpr_at_ks * 100) | round(1) }}%</div><div class="kpi-sub">Goods incorrectly flagged</div></div>
+</div>
+
+<div class="card">
+  <h2>Cumulative Distributions &mdash; Good vs. Bad</h2>
+  <div id="chart-ks" class="chart" style="min-height:440px;"></div>
+  <p class="chart-note">
+    The dashed vertical line marks the KS statistic &mdash; the score value where the gap between the two
+    curves is widest. To its left, low-scored accounts are overwhelmingly the ones that stayed current;
+    to its right, high-scored accounts are disproportionately the ones that rolled.
+  </p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.CLASS_DIST = {{ model.metrics.test.class_score_distribution | tojson }};
+  window.KS_STAT = {{ model.metrics.test.ks | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/model_ks.js') }}"></script>
+{% endblock %}
