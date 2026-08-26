@@ -30,9 +30,9 @@ NAV_ITEMS = [
     dict(order=20, title="Explainability", endpoint="explain.index", built=True),
     dict(order=21, title="Collection Queue", endpoint="collection.index", built=True),
     dict(order=22, title="Risk Metrics", endpoint="risk_metrics.index", built=True),
-    dict(order=23, title="Academic Interpretation", endpoint=None, built=False),
-    dict(order=24, title="Final Recommendation", endpoint=None, built=False),
-    dict(order=25, title="Download / Report", endpoint=None, built=False),
+    dict(order=23, title="Academic Interpretation", endpoint="academic.index", built=True),
+    dict(order=24, title="Final Recommendation", endpoint="recommendation.index", built=True),
+    dict(order=25, title="Download / Report", endpoint="download.index", built=True),
 ]
 
 

@@ -212,23 +212,63 @@ below — extracted during this milestone to stop three copies drifting),
 `routes/{simulator,account,scenario,explain,collection,risk_metrics}.py`,
 matching templates and `static/js/*.js`.
 
-## Milestone 5 — Governance, Narrative & Reporting (NOT STARTED)
+## Milestone 5 — Governance, Narrative & Reporting (DONE)
 
-- [ ] Phase 22 — Model Governance page (target/window definitions, feature
-  list, exclusions, validation methodology, model version, assumptions,
-  limitations).
-- [ ] Phase 23 — Academic Interpretation slide (classification framing,
-  why OOT validation, why AUC alone is insufficient, why Gini/KS/top-decile
-  capture matter, class imbalance, interpretability).
-- [ ] Phase 24 — Final Recommendation (best model, OOT performance,
-  strongest drivers, recommended operating threshold, business
-  recommendation).
-- [ ] Phase 25 — Download/Reporting (CSV/Excel/PDF export of EDA summary,
-  variable dictionary, model comparison, decile table, high-risk account
-  list).
-- [ ] README with setup instructions; final polish pass on Phases 27/28
-  (navigation robustness, error handling for missing values/unseen
-  categories, reproducibility).
+The final milestone — **all 25 planned slides are now built**, no "Soon"
+badges left in the sidebar.
+
+- [x] **Phase 22 — Model Governance** (extends the existing Leakage &
+  Governance page at order=9, not a new slide — see note below). Target/
+  window/grain definitions, feature count, model version and training
+  timestamp, dataset version, the full OOT split and right-censoring
+  exclusion window, and an explicit assumptions/limitations list (synthetic
+  dataset, uncalibrated ranking-only probabilities, simplified portfolio
+  shocks, no fairness/disparate-impact analysis performed).
+- [x] **Phase 23 — Academic Interpretation** (`/academic/`). Seven
+  viva-style questions answered with this project's own numbers rather than
+  textbook generalities — e.g. "why AUC alone is insufficient" cites this
+  project's own AUC-vs-top-decile-capture reasoning, "why behavioral
+  features matter" cites the Feature Lab's own signal-strength numbers
+  (rolling features r≈0.17 vs. single-month deltas r<0.01).
+- [x] **Phase 24 — Final Recommendation** (`/recommendation/`). Executive
+  synthesis: best model + OOT metrics, top 8 risk drivers, a recommended
+  20%-capacity operating point (42.2% capture) shown alongside the full
+  5/10/20/30% trade-off table so the choice is transparent rather than
+  arbitrary, and a closing scope statement (decision-support ranking for
+  human-driven collections, not an autonomous credit decision).
+- [x] **Phase 25 — Download / Reporting** (`/download/`). Real CSV and
+  Excel exports (openpyxl) for variable dictionary, model comparison,
+  decile table, top-2,000 high-risk accounts, and EDA summary — verified by
+  downloading each and checking row counts and content against source.
+  Skipped bespoke PDF generation (no PDF library was already in the stack
+  and adding one wasn't worth it for this scope) in favor of pointing users
+  at the browser's own print-to-PDF for any full page.
+- [x] **README.md** at repo root with setup instructions and an
+  architecture summary.
+- [x] **Edge-case pass**: bad `trade_id` on Account 360 and Explainability,
+  missing/extreme What-If Simulator inputs (negative balances, DPD=99999,
+  utilization=50) all verified to degrade gracefully — no 500s, sane
+  output — via the existing `OneHotEncoder(handle_unknown="ignore")` /
+  `SimpleImputer` pipeline plus each page's own not-found handling.
+
+**One naming note**: the original 28-phase spec's Phase 22 ("Model
+Governance") has no separate slot in the user's later 25-item slide flow —
+that flow's slide 09 is "Leakage & Governance," already built in Milestone
+1. Rather than invent a 26th nav slot outside that numbering, Phase 22's
+content was added to the existing page instead of a new route.
+
+Files: `routes/{academic,recommendation,download}.py`,
+`templates/{academic,recommendation,download}.html`,
+`services/export_service.py`, plus extensions to
+`routes/governance.py` / `templates/governance.html` for the Model
+Governance section. `services/collection_service.get_scored_df` and
+`services/simulator_service.get_percentile_cutoffs`/`load_model` were made
+public (dropped their leading underscore) as more pages started reusing
+them — the same pattern already applied twice in Milestone 4.
+
+**Full nav walk** (all 25 slides, in order) verified via Playwright with no
+console errors beyond the standing favicon 404, and zero 500s in the server
+log across the entire milestone.
 
 ## How to run what's built so far
 

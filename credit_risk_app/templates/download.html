@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Download / Report{% endblock %}
+{% block page_title %}Download / Reporting{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Download / Reporting</h1>
+  <p>Export the key tables from this analysis as CSV or Excel. For a full-page report (e.g. this
+    Final Recommendation or Academic Interpretation page), use your browser's own Print &rarr; Save as PDF
+    &mdash; no bespoke PDF generation here, so what you get always matches what's on screen.</p>
+</div>
+
+<div class="card">
+  <h2>Available Exports</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Table</th><th>Description</th><th>Download</th></tr></thead>
+      <tbody>
+        {% for e in exports %}
+        <tr>
+          <td><strong>{{ e.label }}</strong></td>
+          <td style="color:var(--text-muted); white-space:normal; min-width:340px;">
+            {% if e.key == 'variable_dictionary' %}All 31 columns of behavior_risk_mart with role, data type, definition, and governance classification.
+            {% elif e.key == 'model_comparison' %}OOT AUC/Gini/KS/top-decile capture/precision/recall for all 4 trained models.
+            {% elif e.key == 'decile_table' %}Full 10-decile breakdown (accounts, bad rate, capture rate, lift) for the recommended model on the OOT test set.
+            {% elif e.key == 'high_risk_accounts' %}Top 2,000 OOT test accounts ranked by predicted risk, with balance, DPD, risk band, and actual outcome.
+            {% elif e.key == 'eda_summary' %}Core dataset KPIs and product-mix counts from the Data Overview page.
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;">
+            <a class="btn btn-primary" href="{{ url_for('download.csv', key=e.key) }}">CSV</a>
+            <a class="btn" href="{{ url_for('download.xlsx', key=e.key) }}">Excel</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -19,7 +19,7 @@ def is_ready() -> bool:
     return OOT_SCORED_PARQUET.exists()
 
 
-def _get_df() -> pd.DataFrame:
+def get_scored_df() -> pd.DataFrame:
     global _df
     if _df is None:
         df = pd.read_parquet(OOT_SCORED_PARQUET).sort_values("risk_rank").reset_index(drop=True)
@@ -32,7 +32,7 @@ def _get_df() -> pd.DataFrame:
 
 
 def queue_summary(capacity_pct: int) -> dict:
-    df = _get_df()
+    df = get_scored_df()
     n_total = len(df)
     n_capacity = max(1, round(n_total * capacity_pct / 100))
     top = df.iloc[:n_capacity]
@@ -57,7 +57,7 @@ def queue_summary(capacity_pct: int) -> dict:
 
 
 def queue_page(capacity_pct: int, page: int = 1, page_size: int = 25) -> tuple:
-    df = _get_df()
+    df = get_scored_df()
     n_total = len(df)
     n_capacity = max(1, round(n_total * capacity_pct / 100))
     top = df.iloc[:n_capacity]
