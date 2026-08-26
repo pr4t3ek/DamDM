@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Data Quality{% endblock %}
+{% block page_title %}Data Quality Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Data Quality Dashboard</h1>
+  <p>Automatic validation checks computed once over all {{ "{:,}".format(summary.row_count) }} rows during data preparation.</p>
+</div>
+
+<div class="card">
+  <h2>Validation Checks</h2>
+  <table class="data-table">
+    <thead><tr><th style="width:26px;"></th><th>Check</th><th>Detail</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for chk in summary.quality_checks %}
+      <tr>
+        <td><span class="status-dot {{ chk.status }}"></span></td>
+        <td><strong>{{ chk.name }}</strong></td>
+        <td style="white-space: normal;">{{ chk.detail }}</td>
+        <td>
+          {% if chk.status == "green" %}<span class="badge badge-green">Good</span>
+          {% elif chk.status == "amber" %}<span class="badge badge-amber">Review</span>
+          {% else %}<span class="badge badge-red">Problem</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Missingness by Column</h2>
+    {% for col, pct in summary.missingness.items() %}
+    <div class="bar-row">
+      <div class="bar-label">{{ col }}</div>
+      <div class="bar-track"><div class="bar-fill" style="width: {{ [pct * 3, 100] | min }}%; {% if pct > 0 %}background: var(--red);{% endif %}"></div></div>
+      <div class="bar-value">{{ pct }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <h2>Column Data Types</h2>
+    <div class="table-scroll" style="max-height: 480px; overflow-y: auto;">
+      <table class="data-table">
+        <thead><tr><th>Column</th><th>Type</th></tr></thead>
+        <tbody>
+          {% for col, dtype in summary.dtypes.items() %}
+          <tr><td><code>{{ col }}</code></td><td>{{ dtype }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Numeric Summary</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Column</th><th>Min</th><th>Max</th><th>Mean</th><th>Median</th><th>Std Dev</th></tr></thead>
+      <tbody>
+        {% for col, s in summary.numeric_summary.items() %}
+        {% if s %}
+        <tr>
+          <td><code>{{ col }}</code></td>
+          <td>{{ s.min }}</td><td>{{ s.max }}</td><td>{{ s.mean }}</td><td>{{ s.median }}</td><td>{{ s.std }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

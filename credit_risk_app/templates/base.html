@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Credit Risk Analytics{% endblock %} · Credit Risk Analytics Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body data-prev-href="{{ nav.prev_item.endpoint and url_for(nav.prev_item.endpoint) or '' }}"
+      data-next-href="{{ nav.next_item.endpoint and url_for(nav.next_item.endpoint) or '' }}">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-title">Credit Risk Analytics</div>
+        <div class="brand-sub">Behavioral Early Warning System</div>
+      </div>
+      <ul class="nav-list">
+        {% for item in nav.all_items %}
+        <li class="nav-item">
+          {% if item.built %}
+          <a href="{{ url_for(item.endpoint) }}" class="{{ 'active' if item.endpoint == nav.current_endpoint else '' }}">
+            <span class="nav-num">{{ '%02d' % item.order }}</span>
+            <span>{{ item.title }}</span>
+          </a>
+          {% else %}
+          <span class="nav-disabled">
+            <span class="nav-num">{{ '%02d' % item.order }}</span>
+            <span>{{ item.title }}</span>
+            <span class="nav-badge">Soon</span>
+          </span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-title">
+          {% block page_title %}{% endblock %}
+          {% if nav.progress_current %}
+          <span class="slide-index">Slide {{ nav.progress_current }} of {{ nav.progress_total }} built &middot; {{ nav.total_slides }} planned</span>
+          {% endif %}
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width: {{ (nav.progress_current / nav.progress_total * 100) if nav.progress_current else 0 }}%"></div>
+        </div>
+        <div class="nav-buttons">
+          {% if nav.prev_item %}
+          <a class="btn" href="{{ url_for(nav.prev_item.endpoint) }}">&larr; Previous</a>
+          {% else %}
+          <span class="btn disabled">&larr; Previous</span>
+          {% endif %}
+          {% if nav.next_item %}
+          <a class="btn btn-primary" href="{{ url_for(nav.next_item.endpoint) }}">Next &rarr;</a>
+          {% else %}
+          <span class="btn disabled">Next &rarr;</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="content">
+        {% block content %}{% endblock %}
+        <div class="footer-note">
+          Credit Risk Analytics Dashboard &middot; Milestone 1 (data-understanding arc) &middot;
+          Dataset: <code>behavior_risk_mart</code> &middot; see <a href="{{ url_for('variables.index') }}">Variable Explorer</a> for full schema
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
