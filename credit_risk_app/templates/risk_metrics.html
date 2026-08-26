@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Risk Metrics{% endblock %}
+{% block page_title %}Credit Risk Metrics Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Credit Risk Metrics Dashboard</h1>
+  <p>
+    Three genuinely different kinds of number, kept visually separate on purpose: what the dataset's own
+    risk-estimate fields say, what actually happened in the portfolio, and how well this project's model
+    predicts it. Conflating these is a common and consequential mistake in credit risk reporting.
+  </p>
+</div>
+
+<div class="card" style="border-left:4px solid var(--neutral, #8fa3c8);">
+  <h2>Financial Risk Metrics <span class="badge badge-grey">Dataset-provided, display only</span></h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    <code>pd_12m_proxy</code>, <code>ead_estimate</code>, <code>lgd_estimate</code>, and
+    <code>expected_loss_estimate</code> &mdash; provided in the source data as portfolio benchmarking
+    fields. Per the Leakage &amp; Governance page, these are <strong>never used as model inputs</strong>
+    (circularity risk) and are shown here purely as reference figures, averaged across all
+    {{ "{:,}".format(row_count) }} observations in the full mart.
+  </p>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Avg. PD Proxy (12m)</div><div class="kpi-value">{{ (financial.pd_12m_proxy.mean * 100) | round(2) }}%</div><div class="kpi-sub">median {{ (financial.pd_12m_proxy.median * 100) | round(2) }}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg. EAD</div><div class="kpi-value">{{ "{:,.0f}".format(financial.ead_estimate.mean) }}</div><div class="kpi-sub">median {{ "{:,.0f}".format(financial.ead_estimate.median) }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg. LGD</div><div class="kpi-value">{{ (financial.lgd_estimate.mean * 100) | round(1) }}%</div><div class="kpi-sub">median {{ (financial.lgd_estimate.median * 100) | round(1) }}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Expected Loss</div><div class="kpi-value" style="font-size:19px;">{{ "{:,.0f}".format(financial.total_expected_loss) }}</div><div class="kpi-sub">&sum; expected_loss_estimate, full mart</div></div>
+  </div>
+</div>
+
+<div class="card" style="border-left:4px solid var(--primary, #2f6fed);">
+  <h2>Portfolio Risk Metrics <span class="badge badge-grey">Observed outcomes</span></h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    What actually happened, measured directly from behavior_risk_mart &mdash; no model involved.
+  </p>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Delinquency Rate</div><div class="kpi-value">{{ portfolio.delinquency_rate }}%</div><div class="kpi-sub">Observations with dpd &gt; 0</div></div>
+    <div class="kpi-card"><div class="kpi-label">90+ DPD Roll Rate</div><div class="kpi-value">{{ portfolio.roll_90p_6m_rate }}%</div><div class="kpi-sub">roll_to_90p_6m, primary target</div></div>
+    <div class="kpi-card"><div class="kpi-label">30+ DPD Roll Rate</div><div class="kpi-value">{{ portfolio.roll_30p_3m_rate }}%</div><div class="kpi-sub">roll_to_30p_3m</div></div>
+    <div class="kpi-card"><div class="kpi-label">Cure Rate</div><div class="kpi-value">{{ portfolio.cure_rate_among_delinquent }}%</div><div class="kpi-sub">Among currently-delinquent accounts</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg. Utilization</div><div class="kpi-value">{{ (portfolio.avg_utilization * 100) | round(1) }}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg. DPD</div><div class="kpi-value">{{ portfolio.avg_dpd }}</div></div>
+  </div>
+</div>
+
+<div class="card" style="border-left:4px solid var(--red);">
+  <h2>Model Metrics <span class="badge badge-grey">{{ model.model_name }}, OOT test</span></h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    How well this project's recommended model ranks risk on data it never trained on &mdash; the only fair
+    measure of real-world performance. See <a href="{{ url_for('model_screening.index') }}">Model Screening</a>
+    for the full comparison across all four models.
+  </p>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">AUC</div><div class="kpi-value">{{ model.auc }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gini</div><div class="kpi-value">{{ model.gini }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">KS</div><div class="kpi-value">{{ model.ks }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Top-Decile Capture</div><div class="kpi-value">{{ model.top_decile_capture }}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Precision @0.5</div><div class="kpi-value">{{ model.precision }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Recall @0.5</div><div class="kpi-value">{{ model.recall }}</div></div>
+  </div>
+</div>
+
+<div class="coming-soon-note">
+  <strong>Why keep these separate?</strong> The financial metrics are the source data's own generated
+  benchmark figures (useful for portfolio-level comparison, not causal or predictive). The portfolio
+  metrics are ground truth about what happened. The model metrics measure prediction quality against
+  that ground truth. Blending them &mdash; e.g. treating <code>pd_12m_proxy</code> as if it were this
+  model's output &mdash; would misrepresent both.
+</div>
+{% endblock %}

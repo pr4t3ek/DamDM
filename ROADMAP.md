@@ -157,19 +157,60 @@ excluded by default in the OOT Split Simulator. Milestone 3's training runs
 should build on top of the split simulator's boundaries rather than
 re-deriving this from scratch.
 
-## Milestone 4 — Interactive Decision Support (NOT STARTED)
+## Milestone 4 — Interactive Decision Support (DONE)
 
-- [ ] Phase 16 — What-If Risk Simulator, backed by the actual trained model.
-- [ ] Phase 17 — Account 360 / Risk Explorer with monthly behavioral
-  timeline.
-- [ ] Phase 18 — Portfolio Scenario Simulator (utilization/payment/bounce/
-  DPD shock scenarios).
-- [ ] Phase 19 — Explainability (global importance, permutation importance,
-  SHAP if feasible, per-account reason codes).
-- [ ] Phase 20 — Credit Risk Metrics Dashboard (PD/EAD/LGD/EL vs. model
-  metrics vs. portfolio metrics, clearly distinguished).
-- [ ] Phase 21 — Collection Queue Prioritization simulator (capacity-based
-  ranking, capture rate, exposure covered).
+All five pages score live through the actual persisted XGBoost pipeline
+(`models/xgboost_{model,preprocessor}.pkl`) — nothing here is a hand-written
+rule. One foundational fix made this possible: the model is trained with
+`class_weight="balanced"`, which shifts raw probabilities well above the
+true ~9.6% base rate (mean OOT score ≈0.43) to make the minority class
+learnable. Every page that shows a risk band uses **percentile rank against
+the real OOT score distribution** (`services/simulator_service.py`), not an
+absolute probability cutoff, which would have been meaningless at that scale.
+
+- [x] **Phase 16 — What-If Risk Simulator** (`/simulator/`). 8 sliders + 2
+  toggles, scored live; non-exposed inputs held at the dataset's median/mode
+  "typical account," with engineered features an input directly implies
+  (e.g. `dpd` → `dpd_avg_3m`, `account_status`) kept consistent. Before→after
+  comparison against the baseline account.
+- [x] **Phase 17 — Account 360** (`/account/`). Full monthly history for any
+  `trade_id`, live score, a standardized-deviation driver diagnostic (z-score
+  vs. portfolio median so currency/ratio/count features are comparable), and
+  a DPD/utilization/payment-ratio timeline chart. Reuses the right-censoring
+  fix from Milestone 2: months past the label-maturity cutoff show "N/A,"
+  not a confident (and wrong) "No roll."
+- [x] **Phase 18 — Portfolio Scenario Simulator** (`/scenario/`). 4 shocks
+  (utilization +10pp, payment ratio -15%, +1 bounce, DPD +15d, sustained)
+  re-score the full 221,904-row OOT population. Shocks propagate into the
+  3-month rolling counterpart of the shocked field (not just the raw
+  snapshot) — feature importance shows those rolling features are what the
+  model actually weighs, so a raw-only shock barely moved anything.
+- [x] **Phase 19 — Explainability** (`/explain/`). Three independent global
+  views (native gain-based, permutation importance, SHAP mean |value| via
+  `shap.TreeExplainer`, all computed live in under 2s on a 3,000-row sample)
+  that agree with each other, plus per-account SHAP reason codes translated
+  to plain language with a +/++/+++ strength indicator.
+- [x] **Phase 20 — Credit Risk Metrics Dashboard** (`/risk-metrics/`). Three
+  visually distinct sections: financial metrics (the dataset's own
+  `pd_12m_proxy`/`ead_estimate`/`lgd_estimate`/`expected_loss_estimate`
+  fields — display-only, never model inputs), portfolio metrics (observed
+  delinquency/roll/cure rates), model metrics (this model's OOT performance).
+- [x] **Phase 21 — Collection Queue Prioritization** (`/collections/`).
+  Capacity selector (5/10/20/30%) against the cached, ranked OOT scores;
+  accounts contacted, bad accounts captured, capture rate, exposure covered,
+  paginated ranked table. Surfaces a real finding: capture rate and exposure
+  covered diverge sharply (25% of bad accounts vs. under 3% of dollar
+  exposure at 10% capacity) because high-risk accounts skew toward smaller
+  balances — a risk-ranked queue and an exposure-ranked queue are not the
+  same list.
+
+Files: `scripts/score_oot.py` (scores the full OOT test set once, cached to
+`data/oot_scored.parquet`), `services/model_features.py` (feature-list
+constants shared by `train_models.py`, `score_oot.py`, and every service
+below — extracted during this milestone to stop three copies drifting),
+`services/{simulator,account,scenario,explain,collection,risk_metrics}_service.py`,
+`routes/{simulator,account,scenario,explain,collection,risk_metrics}.py`,
+matching templates and `static/js/*.js`.
 
 ## Milestone 5 — Governance, Narrative & Reporting (NOT STARTED)
 
@@ -198,5 +239,6 @@ pip install -r credit_risk_app/requirements.txt
 python credit_risk_app/scripts/prepare_data.py   # builds parquet + summary cache (one-time)
 python credit_risk_app/scripts/build_features.py # builds engineered features (one-time, after prepare_data.py)
 python credit_risk_app/scripts/train_models.py   # trains + caches all 4 models (one-time, after build_features.py; ~3 min)
+python credit_risk_app/scripts/score_oot.py      # scores the OOT test set for Account 360/Collections/Explainability (one-time, after train_models.py)
 python credit_risk_app/app.py                    # serves on http://localhost:5000
 ```

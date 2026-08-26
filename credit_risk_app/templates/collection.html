@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Collection Queue{% endblock %}
+{% block page_title %}Collection Queue Prioritization{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Collection Queue Prioritization</h1>
+  <p>Ranks every OOT test account by predicted risk and connects that ranking to an actual business
+    decision: given a fixed collections capacity, who gets contacted, and how many real bad accounts
+    does that catch?</p>
+</div>
+
+<div class="card">
+  <div class="filters-bar" style="margin-bottom:0;">
+    <span style="font-size:13px; color:var(--text-muted);">Collection Capacity:</span>
+    {% for c in capacities %}
+    <a href="{{ url_for('collection.index', capacity=c) }}" class="btn {{ 'btn-primary' if c == selected }}" style="text-decoration:none;">{{ c }}%</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">Accounts Contacted</div><div class="kpi-value">{{ "{:,}".format(summary.accounts_contacted) }}</div><div class="kpi-sub">Top {{ summary.capacity_pct }}% by predicted risk</div></div>
+  <div class="kpi-card"><div class="kpi-label">Bad Accounts Captured</div><div class="kpi-value">{{ "{:,}".format(summary.bad_accounts_captured) }}</div><div class="kpi-sub">of {{ "{:,}".format(summary.total_bad_accounts) }} total</div></div>
+  <div class="kpi-card"><div class="kpi-label">Capture Rate</div><div class="kpi-value">{{ summary.capture_rate }}%</div><div class="kpi-sub">Precision in queue: {{ summary.precision }}%</div></div>
+  <div class="kpi-card"><div class="kpi-label">Exposure Covered</div><div class="kpi-value">{{ summary.exposure_covered_pct }}%</div><div class="kpi-sub">{{ "{:,.0f}".format(summary.exposure_covered) }} of {{ "{:,.0f}".format(summary.total_exposure) }}</div></div>
+</div>
+
+<div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8;">
+  Note the gap between capture rate ({{ summary.capture_rate }}%) and exposure covered ({{ summary.exposure_covered_pct }}%):
+  high-risk accounts in this portfolio skew toward smaller balances (many BNPL/thin-file accounts already
+  near zero balance), so a risk-ranked queue is very efficient at catching bad accounts but captures a much
+  smaller share of total dollar exposure. A pure exposure-at-risk view would rank differently &mdash; worth
+  knowing before assuming "top of the risk queue" and "biggest dollars at risk" are the same list.
+</div>
+
+<div class="card">
+  <h2>Capacity vs. Capture Rate</h2>
+  <div id="chart-capacity" class="chart"></div>
+</div>
+
+<div class="card">
+  <h2>Prioritized Queue &mdash; Top {{ summary.capacity_pct }}%</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead><tr><th>Rank</th><th>Trade ID</th><th>Product</th><th>Risk Probability</th><th>Priority</th><th>Balance</th><th>DPD</th><th>Actual Rolled 90+?</th></tr></thead>
+      <tbody id="queue-tbody">
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.risk_rank }}</td>
+          <td><code>{{ r.trade_id }}</code></td>
+          <td>{{ r.product }}</td>
+          <td><strong>{{ (r.predicted_probability * 100) | round(1) }}%</strong></td>
+          <td>
+            {% if r.risk_band == 'Very High' %}<span class="badge badge-red">Very High</span>
+            {% elif r.risk_band == 'High' %}<span class="badge" style="background:#fdeee9;color:#d3652f;">High</span>
+            {% else %}<span class="badge badge-amber">{{ r.risk_band }}</span>{% endif %}
+          </td>
+          <td>{{ "{:,.0f}".format(r.current_balance) }}</td>
+          <td>{{ r.dpd }}</td>
+          <td>{% if r.roll_to_90p_6m == 1 %}<span class="badge badge-red">Yes</span>{% else %}<span class="badge badge-green">No</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:13px; color: var(--text-muted);">
+    <span id="queue-count">Showing 1&ndash;25 of {{ "{:,}".format(summary.accounts_contacted) }} in queue</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button id="queue-prev" class="btn" type="button">&larr; Prev</button>
+      <span id="queue-page-label">Page 1</span>
+      <button id="queue-next" class="btn" type="button">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.CAPACITY_CURVE = {{ curve | tojson }};
+  window.QUEUE_PAGE_URL = "{{ url_for('collection.page') }}";
+  window.SELECTED_CAPACITY = {{ selected }};
+</script>
+<script src="{{ url_for('static', filename='js/collection.js') }}"></script>
+{% endblock %}

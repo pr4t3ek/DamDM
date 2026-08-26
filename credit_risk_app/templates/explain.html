@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Explainability{% endblock %}
+{% block page_title %}Model Explainability{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Model Explainability</h1>
+  <p>
+    Three independent views of what drives {{ model_name }}'s predictions &mdash; its own internal
+    importance, permutation importance (how much OOT AUC drops when a feature is scrambled), and SHAP
+    (game-theoretic per-prediction attribution) &mdash; then a translation of one specific account's score
+    into plain language.
+  </p>
+</div>
+
+<div class="grid-3">
+  <div class="card">
+    <h2>Native (Gain-Based)</h2>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:-6px;">From the model's own split-gain accounting.</p>
+    <div id="chart-native" class="chart" style="min-height:420px;"></div>
+  </div>
+  <div class="card">
+    <h2>Permutation Importance</h2>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:-6px;">OOT AUC drop when a feature is randomly shuffled. Baseline AUC: {{ permutation.baseline_auc }}.</p>
+    <div id="chart-permutation" class="chart" style="min-height:420px;"></div>
+  </div>
+  <div class="card">
+    <h2>SHAP (Global)</h2>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:-6px;">Mean |SHAP value| across a 3,000-row OOT sample.</p>
+    <div id="chart-shap" class="chart" style="min-height:420px;"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>All Three Agree</h2>
+  <p style="margin-top:-4px;">
+    The 3-month rolling DPD features (<code>dpd_avg_3m</code>, <code>dpd_max_3m</code>) and product type
+    lead every ranking, and permutation importance independently confirms <code>product</code> as the
+    single most load-bearing categorical field (unsurprising &mdash; it bundles 9 categories' worth of
+    signal into one shuffle). Consistent rankings across three unrelated methods is a good sign this isn't
+    an artifact of any one technique.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Why Is This Account High Risk?</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    Individual prediction explanation via SHAP &mdash; translated to business language, not raw coefficients.
+  </p>
+  <form method="get" action="{{ url_for('explain.index') }}" class="filters-bar">
+    <input type="text" name="trade_id" placeholder="Trade ID (e.g. {{ searched_trade_id }})" value="{{ searched_trade_id }}" style="min-width:220px;">
+    <button type="submit" class="btn btn-primary">Explain This Account</button>
+  </form>
+
+  {% if not account %}
+  <div class="coming-soon-note">No account found with trade_id "{{ searched_trade_id }}".</div>
+  {% else %}
+  <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-top:10px;">
+    <div class="kpi-card"><div class="kpi-label">Account</div><div class="kpi-value" style="font-size:18px;">{{ account.trade_id }}</div><div class="kpi-sub">{{ account.product }}, {{ account.account_status }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Predicted Risk</div><div class="kpi-value">{{ (account.predicted_probability * 100) | round(1) }}%</div><div class="kpi-sub">{{ account.risk_band.label }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">vs. Population Baseline</div><div class="kpi-value" style="font-size:18px;">{{ reason_codes.base_value | round(3) }}</div><div class="kpi-sub">SHAP base value (log-odds space)</div></div>
+  </div>
+
+  <div class="reason-codes">
+    {% for c in reason_codes.codes %}
+    <div class="reason-code-row">
+      <span class="reason-code-label">{{ c.readable }}</span>
+      <span class="reason-code-strength {{ 'up' if c.contribution > 0 else 'down' }}">{{ c.strength }}</span>
+      <span class="reason-code-dir">{{ c.direction }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <p style="color:var(--text-muted); font-size:12px; margin-top:12px;">
+    SHAP values are additive in log-odds space: the base value plus every feature's contribution reconstructs
+    this account's prediction. Shown here: the {{ reason_codes.codes | length }} largest contributors.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.NATIVE_IMPORTANCE = {{ native_importance | tojson }};
+  window.PERMUTATION_IMPORTANCE = {{ permutation.drops | tojson }};
+  window.SHAP_IMPORTANCE = {{ shap_importance | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/explain.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}What-If Simulator{% endblock %}
+{% block page_title %}What-If Risk Simulator{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>What-If Risk Simulator</h1>
+  <p>
+    Every score here comes from the actual trained {{ model_name }} model &mdash; not a hand-written rule.
+    Adjust an account's behavioral inputs and see how its predicted risk moves in real time. Inputs not
+    exposed below (product, geography, credit limit, etc.) are held at the dataset's typical ("median")
+    account so the effect of each behavioral change is isolated.
+  </p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Account Inputs</h2>
+    <div id="sim-sliders">
+      {% for s in sliders %}
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-muted); margin-bottom:4px;">
+          <label for="in-{{ s.name }}">{{ s.label }}</label>
+          <span id="val-{{ s.name }}" style="font-weight:700; color:var(--text);">{{ s.default }}</span>
+        </div>
+        <input type="range" id="in-{{ s.name }}" data-name="{{ s.name }}" data-pct="{{ 'true' if s.is_pct else 'false' }}"
+               min="{{ s.min }}" max="{{ s.max }}" step="{{ s.step }}" value="{{ s.default }}" style="width:100%;">
+      </div>
+      {% endfor %}
+      <div style="display:flex; gap:24px; margin: 14px 0 6px;">
+        {% for t in toggles %}
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+          <input type="checkbox" id="in-{{ t.name }}" data-name="{{ t.name }}"> {{ t.label }}
+        </label>
+        {% endfor %}
+      </div>
+      <button id="sim-reset" type="button" class="btn" style="margin-top:8px;">Reset Simulator</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Predicted Risk</h2>
+    <div class="kpi-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="kpi-card">
+        <div class="kpi-label">Predicted Risk Probability</div>
+        <div class="kpi-value" id="out-probability" style="font-size:30px;">&mdash;</div>
+        <div class="kpi-sub" id="out-percentile">&mdash;</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Risk Band</div>
+        <div class="kpi-value" id="out-band" style="font-size:22px;">&mdash;</div>
+        <div class="kpi-sub" id="out-action">&mdash;</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">Before &rarr; After</h3>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td>Baseline (typical account)</td>
+          <td>{{ (baseline_probability * 100) | round(1) }}%</td>
+          <td><span class="badge badge-grey">{{ baseline_band.label }}</span></td>
+        </tr>
+        <tr>
+          <td><strong>Current inputs</strong></td>
+          <td id="out-probability-pct"><strong>&mdash;</strong></td>
+          <td id="out-band-badge">&mdash;</td>
+        </tr>
+      </tbody>
+    </table>
+    <div id="out-delta" style="margin-top:10px; font-size:13.5px; color:var(--text-muted);"></div>
+
+    <p style="color:var(--text-muted); font-size:12px; margin-top:18px;">
+      The model is trained with balanced class weights (see Baseline Model), so raw probability runs
+      higher than the true ~9.6% base rate &mdash; the percentile shown is where this score ranks against
+      real out-of-time accounts, which is the number that matters for prioritization.
+    </p>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  window.SCORE_URL = "{{ url_for('simulator.score') }}";
+  window.BASELINE_PROBABILITY = {{ baseline_probability }};
+</script>
+<script src="{{ url_for('static', filename='js/simulator.js') }}"></script>
+{% endblock %}

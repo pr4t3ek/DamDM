@@ -425,6 +425,38 @@ code { background: #eef1f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9
   padding-left: 10px;
 }
 
+/* Explainability reason codes */
+.reason-codes { margin-top: 16px; }
+
+.reason-code-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.reason-code-label { flex: 1; text-transform: capitalize; }
+
+.reason-code-strength {
+  font-weight: 800;
+  font-family: monospace;
+  font-size: 15px;
+  width: 42px;
+  text-align: center;
+}
+.reason-code-strength.up { color: var(--red); }
+.reason-code-strength.down { color: var(--green); }
+
+.reason-code-dir {
+  width: 110px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .coming-soon-note {
   background: #fff6e0;
   border: 1px solid #f0d98c;

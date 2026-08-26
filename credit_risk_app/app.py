@@ -1,8 +1,11 @@
 from flask import Flask
 
 from config import Config
+from routes.account import account_bp
+from routes.collection import collection_bp
 from routes.data import data_bp
 from routes.eda import eda_bp
+from routes.explain import explain_bp
 from routes.features import features_bp
 from routes.governance import governance_bp
 from routes.journey import journey_bp
@@ -14,6 +17,9 @@ from routes.model_roc import model_roc_bp
 from routes.model_screening import model_screening_bp
 from routes.overview import overview_bp
 from routes.quality import quality_bp
+from routes.risk_metrics import risk_metrics_bp
+from routes.scenario import scenario_bp
+from routes.simulator import simulator_bp
 from routes.split import split_bp
 from routes.variables import variables_bp
 
@@ -37,6 +43,12 @@ def create_app():
     app.register_blueprint(model_roc_bp)
     app.register_blueprint(model_ks_bp)
     app.register_blueprint(model_lift_bp)
+    app.register_blueprint(simulator_bp)
+    app.register_blueprint(account_bp)
+    app.register_blueprint(scenario_bp)
+    app.register_blueprint(explain_bp)
+    app.register_blueprint(collection_bp)
+    app.register_blueprint(risk_metrics_bp)
 
     return app
 
