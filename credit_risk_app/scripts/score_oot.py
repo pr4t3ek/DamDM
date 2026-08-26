@@ -30,7 +30,8 @@ OOT_SCORED_PARQUET = DATA_DIR / "oot_scored.parquet"
 DISPLAY_COLS = [
     "observation_id", "trade_id", "customer_id", "lender_id", "product", "state", "city_tier",
     "customer_type", "month_end_date", "months_on_book", "current_balance", "utilization_ratio",
-    "dpd", "account_status", "payment_ratio", "amount_past_due", "ead_estimate", "roll_to_90p_6m",
+    "dpd", "account_status", "payment_ratio", "amount_past_due", "ead_estimate",
+    "expected_loss_estimate", "roll_to_90p_6m",
 ]
 
 

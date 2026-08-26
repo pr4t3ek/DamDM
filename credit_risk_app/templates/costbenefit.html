@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Cost-Benefit Analyzer{% endblock %}
+{% block page_title %}Cost-Benefit Analyzer{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Cost-Benefit Analyzer</h1>
+  <p>Turns the capacity curve on Collection Queue into a rupee figure: at each collection capacity,
+    what's the value of the bad accounts caught minus the cost of the good accounts contacted
+    unnecessarily &mdash; and which capacity level maximizes net benefit?</p>
+</div>
+
+<div class="card">
+  <h2>Cost Assumptions</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    Both numbers below are editable &mdash; change them and recalculate to see the recommended capacity shift live.
+  </p>
+  <form method="get" action="{{ url_for('costbenefit.index') }}" style="display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap;">
+    <div>
+      <label style="display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:4px;">
+        Cost per false positive (&#8377; per unnecessary contact)
+      </label>
+      <input type="number" name="cost_per_fp" value="{{ result.cost_per_fp }}" min="0" step="10"
+             style="padding:8px 10px; border:1px solid var(--border); border-radius:6px; width:180px;">
+    </div>
+    <div>
+      <label style="display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:4px;">
+        Avoided loss per true positive (&#8377; per bad account caught)
+      </label>
+      <input type="number" name="avoided_loss" value="{{ result.avoided_loss_per_tp }}" min="0" step="100"
+             style="padding:8px 10px; border:1px solid var(--border); border-radius:6px; width:220px;">
+    </div>
+    <button type="submit" class="btn btn-primary">Recalculate</button>
+    <a href="{{ url_for('costbenefit.index') }}" class="btn" style="text-decoration:none;">Reset to data defaults</a>
+  </form>
+  <p style="color:var(--text-muted); font-size:12.5px; margin-top:10px; margin-bottom:0;">
+    Data-derived default for avoided loss: &#8377;{{ "{:,.0f}".format(default_avoided_loss) }}
+    (mean <code>expected_loss_estimate</code> among OOT accounts that actually rolled to 90+ DPD).
+    Cost per false positive has no dataset source &mdash; &#8377;{{ "{:,.0f}".format(default_cost_per_fp) }} is a
+    placeholder; replace it with your own collections-outreach cost.
+  </p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">Recommended Capacity</div><div class="kpi-value">{{ result.best_capacity_pct }}%</div><div class="kpi-sub">Maximizes net benefit</div></div>
+  {% for r in result.rows if r.capacity_pct == result.best_capacity_pct %}
+  <div class="kpi-card"><div class="kpi-label">Net Benefit</div><div class="kpi-value">&#8377;{{ "{:,.0f}".format(r.net_benefit) }}</div><div class="kpi-sub">Per scoring cycle</div></div>
+  <div class="kpi-card"><div class="kpi-label">Capture Rate</div><div class="kpi-value">{{ r.capture_rate }}%</div><div class="kpi-sub">Precision in queue: {{ r.precision }}%</div></div>
+  <div class="kpi-card"><div class="kpi-label">ROI Multiple</div><div class="kpi-value">{{ r.roi_multiple }}&times;</div><div class="kpi-sub">&#8377;{{ "{:,.0f}".format(r.gross_benefit) }} value / &#8377;{{ "{:,.0f}".format(r.outreach_cost) }} cost</div></div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Net Benefit by Capacity</h2>
+  <div id="chart-netbenefit" class="chart"></div>
+  {% if result.best_net_benefit < 0 %}
+  <div class="coming-soon-note" style="margin-top:12px;">
+    Every capacity level is net-negative under these assumptions &mdash; at &#8377;{{ "{:,.0f}".format(result.cost_per_fp) }}
+    per unnecessary contact against &#8377;{{ "{:,.0f}".format(result.avoided_loss_per_tp) }} avoided per catch, the
+    false-positive cost outweighs the benefit even in the smallest queue. {{ result.best_capacity_pct }}% is simply
+    the least-negative option, not a profitable one &mdash; lower the assumed cost per contact or raise the avoided-loss
+    basis to find a level that actually pays off.
+  </div>
+  {% elif result.best_capacity_pct == result.rows[-1].capacity_pct %}
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8; margin-top:12px;">
+    Net benefit is still rising at the top of this range ({{ result.rows[-1].capacity_pct }}% capacity) &mdash;
+    under these assumptions, contacting more accounts is always worth it, because the value of one avoided loss
+    (&#8377;{{ "{:,.0f}".format(result.avoided_loss_per_tp) }}) so heavily outweighs the cost of one unnecessary
+    contact (&#8377;{{ "{:,.0f}".format(result.cost_per_fp) }}). The real limit on collection capacity here is
+    operational (how many accounts your team can actually contact per cycle), not cost-efficiency. Raise the cost
+    per false positive enough and an interior optimum will appear.
+  </div>
+  {% else %}
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8; margin-top:12px;">
+    Net benefit peaks at {{ result.best_capacity_pct }}% capacity and falls beyond it &mdash; past this point, the
+    added false-positive contact cost outweighs the marginal true positives caught. This is the capacity level
+    that maximizes rupee value, not just capture rate.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Full Breakdown</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Capacity</th><th>Contacted</th><th>True Positives</th><th>False Positives</th>
+          <th>Capture Rate</th><th>Precision</th><th>Gross Benefit</th><th>Outreach Cost</th>
+          <th>Net Benefit</th><th>ROI</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in result.rows %}
+        <tr {{ 'style="background:#eef4ff;"' if r.capacity_pct == result.best_capacity_pct }}>
+          <td><strong>{{ r.capacity_pct }}%</strong></td>
+          <td>{{ "{:,}".format(r.accounts_contacted) }}</td>
+          <td>{{ "{:,}".format(r.true_positives) }}</td>
+          <td>{{ "{:,}".format(r.false_positives) }}</td>
+          <td>{{ r.capture_rate }}%</td>
+          <td>{{ r.precision }}%</td>
+          <td>&#8377;{{ "{:,.0f}".format(r.gross_benefit) }}</td>
+          <td>&#8377;{{ "{:,.0f}".format(r.outreach_cost) }}</td>
+          <td><strong>&#8377;{{ "{:,.0f}".format(r.net_benefit) }}</strong></td>
+          <td>{{ r.roi_multiple }}&times;</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="coming-soon-note">
+  <code>expected_loss_estimate</code> is a case-study PD&times;LGD&times;EAD proxy shipped with this dataset, not a
+  validated recovery figure from a real collections operation &mdash; treat the &#8377; values on this page as
+  illustrative of the methodology (how you'd size the business case once real cost data is available), not as an
+  actual financial claim. Cost per false positive is entirely your assumption to own; the number above is a
+  placeholder, not derived from data.
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.NET_BENEFIT_ROWS = {{ result.rows | tojson }};
+  window.BEST_CAPACITY_PCT = {{ result.best_capacity_pct }};
+</script>
+<script src="{{ url_for('static', filename='js/costbenefit.js') }}"></script>
+{% endblock %}

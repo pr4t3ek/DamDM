@@ -33,6 +33,7 @@ NAV_ITEMS = [
     dict(order=23, title="Academic Interpretation", endpoint="academic.index", built=True),
     dict(order=24, title="Final Recommendation", endpoint="recommendation.index", built=True),
     dict(order=25, title="Download / Report", endpoint="download.index", built=True),
+    dict(order=26, title="Cost-Benefit Analyzer", endpoint="costbenefit.index", built=True),
 ]
 
 
