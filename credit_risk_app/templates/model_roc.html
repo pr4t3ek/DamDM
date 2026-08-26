@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}ROC / AUC{% endblock %}
+{% block page_title %}ROC / AUC Analysis{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>ROC / AUC Analysis</h1>
+  <p>The ROC curve on the out-of-time test period, with a threshold slider that recomputes the confusion
+    matrix live &mdash; showing the real trade-off between catching more bad accounts and flagging more good
+    ones as the operating point moves.</p>
+</div>
+
+<div class="tab-bar">
+  {% for key, m in models.items() %}
+  <a href="{{ url_for('model_roc.index', model=key) }}" class="tab-btn {{ 'active' if key == selected }}" style="text-decoration:none;">{{ m.display_name }}</a>
+  {% endfor %}
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>ROC Curve &mdash; {{ model.display_name }}</h2>
+    <div id="chart-roc" class="chart" style="min-height:420px;"></div>
+    <p class="chart-note">AUC = {{ model.metrics.test.auc }}. The dashed diagonal is a random classifier (AUC = 0.5); the further the curve bows toward the top-left, the better the separation.</p>
+  </div>
+  <div class="card">
+    <h2>Threshold Simulator</h2>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Probability Threshold</label>
+      <input type="range" id="threshold-slider" min="0" max="149" value="75" style="width:100%;">
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted);">
+        <span>Conservative (flag fewer)</span>
+        <span id="threshold-value" style="font-weight:700; color:var(--text);">&mdash;</span>
+        <span>Aggressive (flag more)</span>
+      </div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
+      <div class="kpi-card"><div class="kpi-label">True Positives</div><div class="kpi-value" id="v-tp">&mdash;</div></div>
+      <div class="kpi-card"><div class="kpi-label">False Positives</div><div class="kpi-value" id="v-fp">&mdash;</div></div>
+      <div class="kpi-card"><div class="kpi-label">False Negatives</div><div class="kpi-value" id="v-fn">&mdash;</div></div>
+      <div class="kpi-card"><div class="kpi-label">True Negatives</div><div class="kpi-value" id="v-tn">&mdash;</div></div>
+    </div>
+    <table class="data-table" style="margin-top:14px;">
+      <tbody>
+        <tr><td>Precision</td><td id="v-precision">&mdash;</td></tr>
+        <tr><td>Recall (sensitivity)</td><td id="v-recall">&mdash;</td></tr>
+        <tr><td>Specificity</td><td id="v-specificity">&mdash;</td></tr>
+        <tr><td>Accounts flagged for intervention</td><td id="v-volume">&mdash;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.ROC_CURVE = {{ model.metrics.test.roc_curve | tojson }};
+  window.N_POS = {{ model.metrics.test.n_pos }};
+  window.N_NEG = {{ model.metrics.test.n_neg }};
+</script>
+<script src="{{ url_for('static', filename='js/model_roc.js') }}"></script>
+{% endblock %}

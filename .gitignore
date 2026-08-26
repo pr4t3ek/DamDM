@@ -4,9 +4,11 @@ __pycache__/
 .venv/
 venv/
 
-# Generated data artifacts (regenerate via credit_risk_app/scripts/prepare_data.py)
+# Generated data artifacts (regenerate via credit_risk_app/scripts/prepare_data.py,
+# build_features.py, and train_models.py)
 credit_risk_app/data/*.parquet
 credit_risk_app/data/*.json
+credit_risk_app/models/*.pkl
 
 # OS junk
 .DS_Store

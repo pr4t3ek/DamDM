@@ -1,0 +1,35 @@
+{% macro metrics_table(metrics) %}
+<table class="data-table">
+  <thead><tr><th>Period</th><th>N</th><th>Event Rate</th><th>AUC</th><th>Gini</th><th>KS</th><th>Precision</th><th>Recall</th><th>F1</th><th>Top-Decile Capture</th></tr></thead>
+  <tbody>
+    {% for period, label in [('train','Training'), ('validation','Validation'), ('test','OOT Test')] %}
+    {% if period in metrics %}
+    {% set m = metrics[period] %}
+    <tr {{ 'style="background:#f7f9fd;"' if period == 'test' else '' }}>
+      <td><strong>{{ label }}</strong></td>
+      <td>{{ "{:,}".format(m.n) }}</td>
+      <td>{{ m.event_rate }}%</td>
+      <td><strong>{{ m.auc }}</strong></td>
+      <td>{{ m.gini }}</td>
+      <td>{{ m.ks.ks }}</td>
+      <td>{{ m.precision }}</td>
+      <td>{{ m.recall }}</td>
+      <td>{{ m.f1 }}</td>
+      <td>{{ m.top_decile_capture }}%</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% macro confusion_matrix(cm, threshold) %}
+<table class="data-table" style="max-width:420px;">
+  <thead><tr><th></th><th>Predicted: No Roll</th><th>Predicted: Rolls 90+</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Actual: No Roll</strong></td><td class="badge-green" style="text-align:center;">{{ "{:,}".format(cm.tn) }}</td><td style="text-align:center;">{{ "{:,}".format(cm.fp) }}</td></tr>
+    <tr><td><strong>Actual: Rolls 90+</strong></td><td style="text-align:center;">{{ "{:,}".format(cm.fn) }}</td><td class="badge-green" style="text-align:center;">{{ "{:,}".format(cm.tp) }}</td></tr>
+  </tbody>
+</table>
+<p style="color:var(--text-muted); font-size:12.5px; margin-top:8px;">At the default {{ threshold }} probability threshold, on the OOT test period.</p>
+{% endmacro %}

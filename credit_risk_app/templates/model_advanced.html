@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+{% block title %}Advanced Models{% endblock %}
+{% block page_title %}Advanced Models{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Advanced Models</h1>
+  <p>Three challengers to the Logistic Regression baseline, all trained on the identical feature set and
+    out-of-time split for a fair comparison. Higher predictive power, less transparent than the baseline.</p>
+</div>
+
+<div class="tab-bar">
+  {% for key, m in models.items() %}
+  <a href="{{ url_for('model_advanced.index', model=key) }}" class="tab-btn {{ 'active' if key == selected }}" style="text-decoration:none;">{{ m.display_name }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>{{ model.display_name }} &mdash; Performance by Period</h2>
+  {{ macros.metrics_table(model.metrics) }}
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Hyperparameters</h2>
+    <table class="data-table">
+      <tbody>
+        {% for k, v in model.hyperparameters.items() %}
+        <tr><td><code>{{ k }}</code></td><td>{{ v }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Confusion Matrix (OOT Test)</h2>
+    {{ macros.confusion_matrix(model.metrics.test.confusion_matrix, 0.5) }}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Feature Importance</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">Top 20 by importance, on the one-hot encoded feature space.</p>
+  <div id="chart-importance" class="chart" style="min-height:480px;"></div>
+</div>
+
+<div class="card">
+  <h2>Predicted Probability Distribution (OOT Test)</h2>
+  <div id="chart-pred-dist" class="chart"></div>
+  <p class="chart-note">A model that separates risk well shows two distinguishable humps rather than one narrow spike &mdash; compare across models using the tabs above.</p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+  window.FEATURE_IMPORTANCE = {{ (model.feature_importance[:20]) | tojson }};
+  window.PRED_HIST = {{ model.metrics.test.prediction_histogram | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/model_advanced.js') }}"></script>
+{% endblock %}

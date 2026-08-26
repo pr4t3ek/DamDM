@@ -101,19 +101,55 @@ accounts. Strongest engineered-feature signal: `payment_ratio_avg_3m`
 (r=-0.175) and `dpd_avg_3m` (r=+0.175) — rolling/stress features carry far
 more signal than single-month deltas (all |r| < 0.01).
 
-## Milestone 3 — Modeling & Evaluation (NOT STARTED)
+## Milestone 3 — Modeling & Evaluation (DONE)
 
-- [ ] Phase 10 — Baseline Logistic Regression model (coefficients, odds
-  ratios, AUC/Gini/KS/precision/recall/F1, confusion matrix, plain-language
-  explanation).
-- [ ] Phase 11 — Advanced models: Decision Tree, Random Forest, Gradient
-  Boosting/XGBoost, each with train/validation/OOT performance and feature
-  importance.
-- [ ] Phase 12 — Model Screening comparison dashboard (OOT AUC/Gini/KS/
-  top-decile capture/precision@10%), selectable final model.
-- [ ] Phase 13 — ROC/AUC analysis with an interactive threshold slider.
-- [ ] Phase 14 — KS analysis dashboard.
-- [ ] Phase 15 — Lift & Gains analysis, decile table, top-10% capture.
+All four models trained on the identical feature set (18 base + 19 engineered
+= 37 inputs, one-hot + standardized), out-of-time split (train 2023-01–
+2024-11, validation 2024-12–2025-04, OOT test 2025-05–2025-09), with
+right-censored months excluded per Milestone 2's finding.
+
+- [x] **Phase 10 — Baseline Model** (`/model/baseline`). Logistic Regression
+  (`class_weight="balanced"`): coefficients, odds ratios, per-period metrics,
+  confusion matrix, and auto-generated plain-language driver explanations.
+- [x] **Phase 11 — Advanced Models** (`/model/advanced`). Decision Tree,
+  Random Forest, and XGBoost, selectable via tabs: hyperparameters,
+  train/validation/OOT metrics, feature importance chart, predicted-
+  probability distribution.
+- [x] **Phase 12 — Model Screening** (`/model/screening`). Comparison table
+  across all 4 models (OOT AUC/Gini/KS/top-decile capture/precision@10%),
+  with a recommendation ranked by top-decile capture + KS (business
+  usefulness) rather than raw AUC alone, and the reasoning spelled out.
+- [x] **Phase 13 — ROC/AUC** (`/model/roc`). Interactive ROC curve per model
+  with a threshold slider that recomputes TP/FP/TN/FN/precision/recall/
+  specificity/intervention-volume live from the cached curve.
+- [x] **Phase 14 — KS Analysis** (`/model/ks`). Good/bad cumulative score
+  distributions with the KS statistic and its threshold marked.
+- [x] **Phase 15 — Lift & Gains** (`/model/lift`). Lift curve, cumulative
+  gains curve, full decile table, top-10% capture highlighted.
+
+Files: `scripts/train_models.py` (trains and caches everything below; also
+persists fitted pipelines to `models/*.pkl` for Milestone 4's simulators),
+`services/model_service.py`, `routes/model_*.py` (6 files),
+`templates/model_*.html` (7 files, plus a shared `_macros.html` for the
+metrics table and confusion matrix), `static/js/model_*.js` (5 files).
+
+**Results (OOT test, 221,904 observations, 10.6% event rate)**:
+
+| Model | AUC | Gini | KS | Top-Decile Capture |
+|---|---|---|---|---|
+| Logistic Regression | 0.7122 | 0.4245 | 0.3025 | 24.6% |
+| Decision Tree | 0.6978 | 0.3956 | 0.2921 | 22.5% |
+| Random Forest | 0.7094 | 0.4189 | 0.2949 | 24.5% |
+| **XGBoost (recommended)** | **0.7148** | **0.4296** | **0.3065** | **25.2%** |
+
+No leakage signatures: decile bad rate is cleanly monotonic (26.7% → 1.25%
+top to bottom), and feature importance is led by real behavioral stress
+signals (`dpd_max_3m`, `dpd_avg_3m`) plus sensible product-type effects
+(secured loans — auto/gold/home — protective; BNPL/unsecured riskier), not
+by anything identifier-like or proxy-derived. XGBoost leads on every metric
+that matters for this use case; Logistic Regression stays close behind and
+is the fallback where interpretability outweighs the last few points of
+lift.
 
 **Right-censoring, resolved in Milestone 2**: see above — confirmed real,
 quantified (18.6% of rows), flagged in the Data Quality Dashboard, and
@@ -161,5 +197,6 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r credit_risk_app/requirements.txt
 python credit_risk_app/scripts/prepare_data.py   # builds parquet + summary cache (one-time)
 python credit_risk_app/scripts/build_features.py # builds engineered features (one-time, after prepare_data.py)
+python credit_risk_app/scripts/train_models.py   # trains + caches all 4 models (one-time, after build_features.py; ~3 min)
 python credit_risk_app/app.py                    # serves on http://localhost:5000
 ```
