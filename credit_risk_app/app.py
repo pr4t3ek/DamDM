@@ -4,6 +4,7 @@ from config import Config
 from routes.academic import academic_bp
 from routes.account import account_bp
 from routes.collection import collection_bp
+from routes.costbenefit import costbenefit_bp
 from routes.data import data_bp
 from routes.download import download_bp
 from routes.eda import eda_bp
@@ -55,6 +56,7 @@ def create_app():
     app.register_blueprint(academic_bp)
     app.register_blueprint(recommendation_bp)
     app.register_blueprint(download_bp)
+    app.register_blueprint(costbenefit_bp)
 
     return app
 

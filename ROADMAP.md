@@ -270,6 +270,50 @@ them — the same pattern already applied twice in Milestone 4.
 console errors beyond the standing favicon 404, and zero 500s in the server
 log across the entire milestone.
 
+## Post-Milestone 5 — Cost-Benefit Analyzer (DONE)
+
+Added after the 25-slide spec was already complete, at the user's request
+while prepping a time-boxed live defense of the project: a 26th slide
+(`/costbenefit/`) that turns the Collection Queue capacity curve into a
+rupee net-benefit figure, so the recommended operating capacity can be
+chosen by ROI rather than capture rate alone.
+
+- `services/costbenefit_service.py` — `net_benefit_curve(cost_per_fp,
+  avoided_loss_per_tp)` reuses `collection_service.get_scored_df()` and
+  `CAPACITY_CHOICES`, computing `TP × avoided_loss − FP × cost_per_fp` at
+  each capacity level.
+- **Avoided loss per true positive** defaults to a real, data-derived
+  number: the mean `expected_loss_estimate` among OOT-test accounts that
+  actually rolled to 90+ DPD (₹19,241, computed live via
+  `default_avoided_loss_per_tp()`, not hardcoded). This required adding
+  `expected_loss_estimate` to `scripts/score_oot.py`'s `DISPLAY_COLS` and
+  re-running it — that field wasn't previously cached in
+  `oot_scored.parquet`.
+- **Cost per false positive** has no basis anywhere in the dataset — it
+  defaults to a placeholder (₹200) that the page states plainly is *not*
+  data-derived, must be supplied by the user, and is live-editable in a
+  form on the page (GET query params, full server-side recompute — no new
+  JS framework, consistent with the rest of the app).
+- **Real finding surfaced on the page**: at the data-derived defaults, net
+  benefit is still rising at the top of the capacity range (5→30%,
+  ₹63M→₹243M, monotonically increasing) — because avoided loss per catch
+  so heavily outweighs contact cost that the real constraint becomes
+  operational capacity, not cost-efficiency. Tested and confirmed an
+  interior optimum does appear once cost-per-contact is raised enough
+  (e.g. ₹5,000 → optimum at 10% capacity, ₹32.8M net benefit, negative
+  beyond 20%) — the page detects and messages both cases (rising-to-the-edge
+  vs. interior-optimum vs. every-level-negative) rather than just always
+  reporting "best of these 4."
+
+Also fixed in passing: `templates/base.html`'s footer had said "Milestone 1
+(data-understanding arc)" on every page since the very first build — stale
+since Milestone 2 and never caught. Removed the milestone reference.
+
+Files: `services/costbenefit_service.py`, `routes/costbenefit.py`,
+`templates/costbenefit.html`, `static/js/costbenefit.js`; nav.py gained a
+26th entry; `scripts/score_oot.py` and the regenerated (gitignored)
+`oot_scored.parquet` gained the `expected_loss_estimate` column.
+
 ## How to run what's built so far
 
 ```bash
