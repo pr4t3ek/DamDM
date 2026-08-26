@@ -314,6 +314,40 @@ Files: `services/costbenefit_service.py`, `routes/costbenefit.py`,
 26th entry; `scripts/score_oot.py` and the regenerated (gitignored)
 `oot_scored.parquet` gained the `expected_loss_estimate` column.
 
+## Post-Milestone 5 — Main / Appendix nav split (DONE)
+
+Follow-up to the Cost-Benefit Analyzer: the user has a hard 10-12 minute
+live defense and asked to trim the deck for time, then clarified that
+should mean grouping — not deleting — with the interactive pages (sliders,
+simulators) and core data pages kept as "necessary," not appendix material.
+
+`services/nav.py`'s `NAV_ITEMS` gained a `section` field (`"main"` or
+`"appendix"`) and was **reordered, not just relabeled**: the 11 `"main"`
+items are now first in the list, in the actual order they'd be presented,
+so clicking **Next** from Executive Overview runs the entire live talk
+start to finish without ever landing on backup material:
+
+Executive Overview -> Data Overview -> Data Quality -> OOT Split -> Model
+Screening -> Lift & Gains -> What-If Simulator -> Portfolio Scenario
+Simulator -> Collection Queue -> Cost-Benefit Analyzer -> Final
+Recommendation.
+
+The other 15 (Business Problem, Credit Risk Journey, Variable Explorer,
+EDA, Feature Engineering, Leakage & Governance, Baseline Model, Advanced
+Models, ROC/AUC, KS Analysis, Account 360, Explainability, Risk Metrics,
+Academic Interpretation, Download/Report) are `"appendix"` — unchanged
+pages, same titles, same URLs, just ordered after the main 11 and visually
+separated in the sidebar under an "Appendix" divider
+(`templates/base.html`, two `{% for %}` loops filtered by `item.section`
+instead of one). Nothing was hidden, deleted, or renamed — this is a purely
+presentational reorder. All 26 slides remain built and directly reachable;
+`nav.get_nav_context()`'s prev/next logic was untouched, since it already
+just walks list position, which now happens to be the presentation order.
+
+Verified: sidebar renders both section labels, Final Recommendation's Next
+button correctly rolls into the first appendix item (Business Problem),
+and every reordered main-section route still returns 200.
+
 ## How to run what's built so far
 
 ```bash
