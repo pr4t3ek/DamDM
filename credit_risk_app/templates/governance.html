@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Leakage & Governance{% endblock %}
+{% block page_title %}Leakage & Governance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Leakage &amp; Governance</h1>
+  <p>
+    Every variable in <code>behavior_risk_mart</code>, classified as <strong>Safe</strong>,
+    <strong>Potentially Risky</strong>, or <strong>Exclude</strong> for use in a model predicting
+    <code>{{ primary_target }}</code>. Classifications and reasons are sourced directly from the
+    data dictionary's own <code>timing_and_leakage_rule</code> guidance.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Final Modeling Feature Set <span class="badge badge-green">{{ feature_cols | length }} features</span></h2>
+  <p style="color: var(--text-muted); font-size: 13.5px; margin-top: -6px;">
+    Everything else on this page (identifiers, the time key, risk-estimate/proxy fields, and all
+    target labels) is excluded from the feature matrix.
+  </p>
+  <div class="pill-list">
+    {% for f in feature_cols %}<span class="pill">{{ f }}</span>{% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Targets</h2>
+  <p><span class="badge badge-red">Primary</span> <code>{{ primary_target }}</code> &mdash; the label this project's model predicts.</p>
+  <p><span class="badge badge-grey">Secondary / future</span>
+    {% for t in secondary_targets %}<code>{{ t }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    &mdash; present in the mart, out of scope for the v1 model.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Variable-by-Variable Classification</h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th>Variable</th><th>Role</th><th>Classification</th><th>Reason</th></tr>
+      </thead>
+      <tbody>
+        {% for v in variables %}
+        <tr>
+          <td><code>{{ v.name }}</code></td>
+          <td>{{ v.role_category }}</td>
+          <td>
+            {% if v.governance == "Safe" %}<span class="badge badge-green">Safe</span>
+            {% elif v.governance == "Potentially Risky" %}<span class="badge badge-amber">Potentially Risky</span>
+            {% else %}<span class="badge badge-red">Exclude</span>{% endif %}
+          </td>
+          <td style="white-space: normal; min-width: 320px;">{{ v.governance_reason }} <span style="color: var(--text-muted);">({{ v.leakage_rule }})</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="coming-soon-note">
+  Note on the four risk-estimate fields (<code>pd_12m_proxy</code>, <code>expected_loss_estimate</code>,
+  <code>ead_estimate</code>, <code>lgd_estimate</code>): the dictionary's exclusion language isn't
+  perfectly uniform &mdash; <code>pd_12m_proxy</code> and <code>expected_loss_estimate</code> carry an
+  explicit hard rule against use as model inputs, while <code>ead_estimate</code>/<code>lgd_estimate</code>
+  are softer / implicit. All four are excluded here for consistency (circularity risk), and may be used
+  later only as a benchmark comparison for a trained model &mdash; never as a feature.
+</div>
+{% endblock %}

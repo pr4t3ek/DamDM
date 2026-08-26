@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Data Overview{% endblock %}
+{% block page_title %}Data Overview{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Data Overview</h1>
+  <p>Dataset: <code>behavior_risk_mart</code> &mdash; one row per trade-month observation, pulled from the 3 raw mart part files via git-lfs and prepared into a single Parquet file.</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-label">Rows</div><div class="kpi-value">{{ "{:,}".format(summary.row_count) }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Customers</div><div class="kpi-value">{{ "{:,}".format(summary.n_customers) }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Trades</div><div class="kpi-value">{{ "{:,}".format(summary.n_trades) }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Lenders</div><div class="kpi-value">{{ summary.n_lenders }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Products</div><div class="kpi-value">{{ summary.n_products }}</div></div>
+  <div class="kpi-card"><div class="kpi-label">Date Range</div><div class="kpi-value" style="font-size:16px;">{{ summary.date_min }} &rarr; {{ summary.date_max }}</div><div class="kpi-sub">{{ summary.n_distinct_months }} distinct months</div></div>
+</div>
+
+<div class="grid-3">
+  <div class="card">
+    <h3>Numerical Variables ({{ numeric_vars | length }})</h3>
+    <div class="pill-list">
+      {% for v in numeric_vars %}<span class="pill">{{ v.name }}</span>{% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Categorical Variables ({{ categorical_vars | length }})</h3>
+    <div class="pill-list">
+      {% for v in categorical_vars %}<span class="pill">{{ v.name }}</span>{% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h3>Binary / Flag Variables ({{ binary_vars | length }})</h3>
+    <div class="pill-list">
+      {% for v in binary_vars %}<span class="pill">{{ v.name }}</span>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Data Explorer</h2>
+  <form id="explorer-filters" class="filters-bar">
+    <input type="text" name="customer_id" placeholder="Customer ID (e.g. C0000001)">
+    <input type="text" name="trade_id" placeholder="Trade ID (e.g. T000000001)">
+    <select name="product">
+      <option value="">All products</option>
+      {% for p in summary.products %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+    </select>
+    <input type="text" name="lender_id" placeholder="Lender ID (e.g. L001)">
+    <input type="date" name="date_from" min="{{ summary.date_min }}" max="{{ summary.date_max }}">
+    <input type="date" name="date_to" min="{{ summary.date_min }}" max="{{ summary.date_max }}">
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <button type="reset" class="btn">Reset</button>
+  </form>
+
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Month</th><th>Customer</th><th>Trade</th><th>Lender</th><th>Product</th>
+          <th>Geography</th><th>Balance</th><th>Utilization</th><th>DPD</th><th>Status</th><th>Rolls 90+/6m</th>
+        </tr>
+      </thead>
+      <tbody id="explorer-tbody">
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.month_end_date }}</td>
+          <td>{{ r.customer_id }}</td>
+          <td>{{ r.trade_id }}</td>
+          <td>{{ r.lender_id }}</td>
+          <td>{{ r.product }}</td>
+          <td>{{ r.state }}, {{ r.city_tier }}</td>
+          <td>{{ "{:,.0f}".format(r.current_balance) }}</td>
+          <td>{{ (r.utilization_ratio * 100) | round(1) }}%</td>
+          <td>{{ r.dpd }}</td>
+          <td>{{ r.account_status }}</td>
+          <td>{% if r.roll_to_90p_6m == 1 %}<span class="badge badge-red">Rolls 90p</span>{% else %}<span class="badge badge-green">No roll</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:13px; color: var(--text-muted);">
+    <span id="explorer-count">{{ "{:,}".format(total) }} matching observation(s)</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button id="explorer-prev" class="btn" type="button">&larr; Prev</button>
+      <span id="explorer-page-label">Page {{ page }} of {{ (total / page_size) | round(0, 'ceil') | int }}</span>
+      <button id="explorer-next" class="btn" type="button">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>window.EXPLORER_QUERY_URL = "{{ url_for('data.query') }}";</script>
+<script src="{{ url_for('static', filename='js/data_explorer.js') }}"></script>
+{% endblock %}

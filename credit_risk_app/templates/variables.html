@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Variable Explorer{% endblock %}
+{% block page_title %}Variable Explorer{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Variable Explorer</h1>
+  <p>
+    All 31 columns of <code>behavior_risk_mart</code>, grouped by role. Definitions, leakage rules, and
+    sample values are transcribed from the project's source-of-truth data dictionary
+    (<code>Credit_Risk_Data_Dictionary.xlsx</code>). See the standalone reference at
+    <code>docs/variable_dictionary.md</code> for the same content outside the app.
+  </p>
+</div>
+
+{% set role_labels = {
+  "Identifier": "Identifiers (excluded from modeling)",
+  "Time Key": "Time Key",
+  "Candidate Feature": "Candidate Features",
+  "Feature Flag": "Feature Flags",
+  "Risk Estimate": "Risk-Estimate / Proxy Fields (excluded from modeling)",
+  "Target Label": "Target Labels"
+} %}
+
+{% for role in role_order %}
+{% set group = variables | selectattr("role_category", "equalto", role) | list %}
+{% if group %}
+<div class="card">
+  <h2>{{ role_labels[role] }} <span class="badge badge-grey">{{ group | length }}</span></h2>
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Variable</th><th>Business Meaning</th><th>Data Type</th>
+          <th>Expected Risk Direction</th><th>Use in v1 Model?</th><th>Importance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in group %}
+        <tr>
+          <td><code>{{ v.name }}</code></td>
+          <td style="white-space: normal; min-width: 260px;">{{ v.definition }}</td>
+          <td>{{ v.dtype }}</td>
+          <td style="white-space: normal;">{{ v.expected_risk_direction }}</td>
+          <td>
+            {% if v.governance == "Safe" %}<span class="badge badge-green">Yes</span>
+            {% elif v.governance == "Potentially Risky" %}<span class="badge badge-amber">Caution</span>
+            {% else %}<span class="badge badge-red">No</span>{% endif %}
+          </td>
+          <td style="color: var(--text-muted); font-size: 12px; white-space: nowrap;">Pending (Milestone 3)</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Executive Overview{% endblock %}
+{% block page_title %}Executive Overview{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Predicting Serious Delinquency in Active Credit Accounts Using Behavioral Risk Analytics</h1>
+  <p>
+    Financial institutions need to identify active credit accounts likely to transition into
+    90+ Days Past Due (DPD) within the next six months. Early prediction of serious delinquency
+    enables proactive intervention, reduces credit losses, and improves portfolio risk management.
+  </p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Accounts</div>
+    <div class="kpi-value">{{ "{:,}".format(summary.kpis.total_accounts) }}</div>
+    <div class="kpi-sub">Distinct trade_id (tradelines)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Observations</div>
+    <div class="kpi-value">{{ "{:,}".format(summary.kpis.total_observations) }}</div>
+    <div class="kpi-sub">Trade-month rows, {{ summary.date_min }} &ndash; {{ summary.date_max }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Delinquency Rate</div>
+    <div class="kpi-value">{{ summary.kpis.delinquency_rate }}%</div>
+    <div class="kpi-sub">Observations with dpd &gt; 0</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">90+ DPD Roll Rate</div>
+    <div class="kpi-value">{{ summary.kpis.roll_90p_6m_rate }}%</div>
+    <div class="kpi-sub">roll_to_90p_6m = 1 (primary target)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Average Utilization</div>
+    <div class="kpi-value">{{ (summary.kpis.avg_utilization * 100) | round(1) }}%</div>
+    <div class="kpi-sub">Mean utilization_ratio</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Average DPD</div>
+    <div class="kpi-value">{{ summary.kpis.avg_dpd }}</div>
+    <div class="kpi-sub">Mean days past due</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Objective &amp; Prediction Target</h2>
+    <table class="data-table">
+      <tbody>
+        <tr><td><strong>Target variable</strong></td><td><code>roll_to_90p_6m</code></td></tr>
+        <tr><td><strong>Definition</strong></td><td>Account rolls to 90+ DPD / default within the next 6 months</td></tr>
+        <tr><td><strong>Prediction horizon</strong></td><td>6 months forward-looking</td></tr>
+        <tr><td><strong>Unit of analysis</strong></td><td>Account-month (one row per trade per month)</td></tr>
+        <tr><td><strong>Problem type</strong></td><td>Binary classification, imbalanced (~{{ summary.target.roll_to_90p_6m.event_rate }}% positive)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Business Value</h2>
+    <ul>
+      <li>Flags at-risk active accounts before they become severely delinquent, ahead of standard bureau-cycle reporting.</li>
+      <li>Enables proactive collections outreach and credit-line management instead of reactive recovery after default.</li>
+      <li>Supports risk-based prioritization: focus limited collections capacity on the accounts most likely to roll to serious delinquency.</li>
+      <li>Feeds portfolio-level risk monitoring and early-warning dashboards for credit risk management teams.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+  <h2>High-Level Methodology</h2>
+  <ol>
+    <li><strong>Data foundation</strong> &mdash; behavior_risk_mart (this milestone): one row per trade-month, 31 columns, already joined with customer/geography attributes.</li>
+    <li><strong>Data quality &amp; governance</strong> &mdash; validate the data and explicitly classify every variable as safe, leakage-risk, or target (see Data Quality and Leakage &amp; Governance pages).</li>
+    <li><strong>Exploratory analysis &amp; feature engineering</strong> &mdash; understand delinquency, payment, and utilization behavior; build rolling/trend features (planned, Milestone 2).</li>
+    <li><strong>Modeling</strong> &mdash; out-of-time train/validation/test split by <code>month_end_date</code>; Logistic Regression baseline vs. Random Forest / XGBoost challengers (planned, Milestone 3).</li>
+    <li><strong>Evaluation &amp; deployment</strong> &mdash; OOT AUC, Gini, KS, top-decile capture; package as a scoring pipeline for an Early Warning System (planned, Milestones 3&ndash;5).</li>
+  </ol>
+  <p style="color: var(--text-muted); font-size: 13px;">See <code>ROADMAP.md</code> in the repository for the full phase-by-phase build plan.</p>
+</div>
+{% endblock %}
