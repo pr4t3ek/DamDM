@@ -15,8 +15,28 @@
         <div class="brand-title">Credit Risk Analytics</div>
         <div class="brand-sub">Behavioral Early Warning System</div>
       </div>
+      <div class="nav-section-label">Presentation</div>
       <ul class="nav-list">
-        {% for item in nav.all_items %}
+        {% for item in nav.all_items if item.section == 'main' %}
+        <li class="nav-item">
+          {% if item.built %}
+          <a href="{{ url_for(item.endpoint) }}" class="{{ 'active' if item.endpoint == nav.current_endpoint else '' }}">
+            <span class="nav-num">{{ '%02d' % item.order }}</span>
+            <span>{{ item.title }}</span>
+          </a>
+          {% else %}
+          <span class="nav-disabled">
+            <span class="nav-num">{{ '%02d' % item.order }}</span>
+            <span>{{ item.title }}</span>
+            <span class="nav-badge">Soon</span>
+          </span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="nav-section-label">Appendix</div>
+      <ul class="nav-list">
+        {% for item in nav.all_items if item.section == 'appendix' %}
         <li class="nav-item">
           {% if item.built %}
           <a href="{{ url_for(item.endpoint) }}" class="{{ 'active' if item.endpoint == nav.current_endpoint else '' }}">
