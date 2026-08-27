@@ -16,9 +16,12 @@ picked by ROI rather than capture rate alone. Two assumptions drive it:
   to a placeholder (INR 200) that is always shown as editable, never
   presented as data-derived.
 """
+import numpy as np
+
 from services.collection_service import CAPACITY_CHOICES, get_scored_df
 
 DEFAULT_COST_PER_FP = 200.0
+THRESHOLD_GRID = [round(t, 2) for t in np.arange(0.05, 0.951, 0.05)]
 
 _default_avoided_loss = None
 
@@ -65,4 +68,48 @@ def net_benefit_curve(cost_per_fp: float, avoided_loss_per_tp: float) -> dict:
         best_net_benefit=best["net_benefit"],
         cost_per_fp=cost_per_fp,
         avoided_loss_per_tp=avoided_loss_per_tp,
+    )
+
+
+def threshold_cost_curve(cost_per_fp: float, cost_per_fn: float) -> dict:
+    """
+    Classic cost-sensitive-classification view: sweep the model's own
+    probability threshold (not a rank/capacity bucket) and total up
+    FP*cost_per_fp + FN*cost_per_fn at each point. cost_per_fn is the same
+    number as avoided_loss_per_tp on the capacity view -- missing a true
+    bad account forfeits exactly the loss that account would have caused,
+    so it's one assumption framed two ways, not a second hidden one.
+    """
+    df = get_scored_df()
+    probs = df["predicted_probability"].to_numpy()
+    actual = df["roll_to_90p_6m"].to_numpy()
+    total_bads = int(actual.sum())
+    total_goods = len(df) - total_bads
+
+    rows = []
+    for t in THRESHOLD_GRID:
+        flagged = probs >= t
+        tp = int((flagged & (actual == 1)).sum())
+        fp = int((flagged & (actual == 0)).sum())
+        fn = total_bads - tp
+        total_cost = fp * cost_per_fp + fn * cost_per_fn
+        rows.append(dict(
+            threshold=t,
+            accounts_flagged=int(flagged.sum()),
+            true_positives=tp,
+            false_positives=fp,
+            false_negatives=fn,
+            precision=round(100 * tp / flagged.sum(), 2) if flagged.sum() else None,
+            recall=round(100 * tp / total_bads, 2) if total_bads else None,
+            total_cost=round(total_cost, 0),
+        ))
+    best = min(rows, key=lambda r: r["total_cost"])
+    return dict(
+        rows=rows,
+        best_threshold=best["threshold"],
+        best=best,
+        cost_per_fp=cost_per_fp,
+        cost_per_fn=cost_per_fn,
+        total_bads=total_bads,
+        total_goods=total_goods,
     )

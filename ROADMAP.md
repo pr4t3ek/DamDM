@@ -348,6 +348,39 @@ Verified: sidebar renders both section labels, Final Recommendation's Next
 button correctly rolls into the first appendix item (Business Problem),
 and every reordered main-section route still returns 200.
 
+## Post-Milestone 5 — Threshold vs. Cost curve (DONE)
+
+The user asked for a "threshold vs cost kind of thing" on the Cost-Benefit
+Analyzer — the classic cost-sensitive-classification view, distinct from
+the capacity-bucket table already on the page. Added as a second analysis
+on the same `/costbenefit/` page rather than a new nav slide, reusing the
+same two cost inputs already on the form.
+
+`services/costbenefit_service.threshold_cost_curve(cost_per_fp,
+cost_per_fn)` sweeps the model's own probability threshold (0.05 to 0.95,
+step 0.05) directly against `predicted_probability` — a real decision
+cutoff, not a rank/capacity bucket — and computes `total_cost = FP *
+cost_per_fp + FN * cost_per_fn` at each point via vectorized boolean masks
+on the already-cached OOT dataframe. `cost_per_fn` reuses the page's
+existing `avoided_loss_per_tp` value rather than introducing a second
+hidden assumption: missing a true bad account forfeits exactly the loss
+that account would have caused.
+
+Verified the direction is right by sweeping `cost_per_fp`: at the
+data-derived default (₹200 vs. ₹19,241 avoided loss) the optimum sits at
+the bottom of the swept range (0.05) — flag almost everyone, same finding
+as the capacity view. At ₹5,000/FP a genuine interior optimum appears
+(threshold 0.7, ₹421.4M total cost). At ₹100,000/FP the optimum sits at
+the top of the range (0.95) — flag almost nobody, missing nearly every bad
+account, which the page calls out explicitly as a case where minimizing
+cost alone isn't the right objective. All three cases get distinct
+messaging, matching the pattern already used on the capacity card.
+
+Files: `services/costbenefit_service.py` (new function),
+`routes/costbenefit.py`, `templates/costbenefit.html`,
+`static/js/costbenefit.js` — all extensions of the same page built
+earlier, no new route.
+
 ## How to run what's built so far
 
 ```bash

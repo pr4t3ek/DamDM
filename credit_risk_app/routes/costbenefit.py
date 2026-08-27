@@ -25,10 +25,12 @@ def index():
     avoided_loss_per_tp = _parse_float(request.args.get("avoided_loss"), default_avoided_loss)
 
     result = cb.net_benefit_curve(cost_per_fp, avoided_loss_per_tp)
+    threshold_result = cb.threshold_cost_curve(cost_per_fp, avoided_loss_per_tp)
 
     return render_template(
         "costbenefit.html",
         result=result,
+        threshold_result=threshold_result,
         default_cost_per_fp=cb.DEFAULT_COST_PER_FP,
         default_avoided_loss=default_avoided_loss,
         nav=get_nav_context("costbenefit.index"),

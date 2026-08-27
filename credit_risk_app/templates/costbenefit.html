@@ -109,6 +109,50 @@
   </div>
 </div>
 
+<div class="card">
+  <h2>Threshold vs. Cost</h2>
+  <p style="color:var(--text-muted); font-size:13.5px; margin-top:-6px;">
+    A different cut on the same two assumptions above: instead of a capacity bucket, sweep the model's own
+    probability threshold directly and total up the cost of false positives (contacted unnecessarily) plus false
+    negatives (missed &mdash; forfeits the same avoided-loss value). The threshold that minimizes total cost is
+    highlighted.
+  </p>
+  <div class="kpi-grid" style="margin-top:14px;">
+    <div class="kpi-card"><div class="kpi-label">Optimal Threshold</div><div class="kpi-value">{{ threshold_result.best_threshold }}</div><div class="kpi-sub">Minimizes total cost</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Cost</div><div class="kpi-value">&#8377;{{ "{:,.0f}".format(threshold_result.best.total_cost) }}</div><div class="kpi-sub">FP + FN cost at this threshold</div></div>
+    <div class="kpi-card"><div class="kpi-label">Precision / Recall</div><div class="kpi-value">{{ threshold_result.best.precision }}% / {{ threshold_result.best.recall }}%</div><div class="kpi-sub">{{ "{:,}".format(threshold_result.best.accounts_flagged) }} flagged</div></div>
+    <div class="kpi-card"><div class="kpi-label">FP / FN</div><div class="kpi-value">{{ "{:,}".format(threshold_result.best.false_positives) }} / {{ "{:,}".format(threshold_result.best.false_negatives) }}</div><div class="kpi-sub">of {{ "{:,}".format(threshold_result.total_goods) }} good / {{ "{:,}".format(threshold_result.total_bads) }} bad</div></div>
+  </div>
+  <div id="chart-thresholdcost" class="chart" style="margin-top:14px;"></div>
+  {% if threshold_result.best_threshold == threshold_result.rows[0].threshold %}
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8; margin-top:12px;">
+    Cost keeps falling all the way to the bottom of this range ({{ threshold_result.best_threshold }}) &mdash;
+    the same story as the capacity view above: at &#8377;{{ "{:,.0f}".format(threshold_result.cost_per_fn) }} per
+    missed account against &#8377;{{ "{:,.0f}".format(threshold_result.cost_per_fp) }} per unnecessary contact,
+    flagging almost everyone is cost-minimizing. Raise the cost per false positive to see a genuine interior
+    optimum appear.
+  </div>
+  {% elif threshold_result.best_threshold == threshold_result.rows[-1].threshold %}
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8; margin-top:12px;">
+    Cost keeps falling all the way to the top of this range ({{ threshold_result.best_threshold }}) &mdash; at
+    this cost per false positive, flagging almost nobody minimizes total cost, at the price of missing nearly
+    every real bad account ({{ "{:,}".format(threshold_result.best.false_negatives) }} of
+    {{ "{:,}".format(threshold_result.total_bads) }}). Worth naming out loud if asked: minimizing cost alone
+    isn't always the right business objective.
+  </div>
+  {% else %}
+  <div class="coming-soon-note" style="background:#e8f0fe; border-color:#b8cdf5; color:#1f4fb8; margin-top:12px;">
+    Total cost bottoms out at threshold {{ threshold_result.best_threshold }} and rises on either side &mdash;
+    a genuine interior optimum, distinct from the 0.5 default most classifiers ship with.
+  </div>
+  {% endif %}
+  <p style="color:var(--text-muted); font-size:12.5px; margin-top:10px; margin-bottom:0;">
+    Cost of a false negative here reuses the same &#8377;{{ "{:,.0f}".format(threshold_result.cost_per_fn) }}
+    avoided-loss figure from above &mdash; missing a true bad account forfeits exactly the loss that account would
+    have caused, so this isn't a second, hidden assumption.
+  </p>
+</div>
+
 <div class="coming-soon-note">
   <code>expected_loss_estimate</code> is a case-study PD&times;LGD&times;EAD proxy shipped with this dataset, not a
   validated recovery figure from a real collections operation &mdash; treat the &#8377; values on this page as
@@ -123,6 +167,8 @@
 <script>
   window.NET_BENEFIT_ROWS = {{ result.rows | tojson }};
   window.BEST_CAPACITY_PCT = {{ result.best_capacity_pct }};
+  window.THRESHOLD_COST_ROWS = {{ threshold_result.rows | tojson }};
+  window.BEST_THRESHOLD = {{ threshold_result.best_threshold }};
 </script>
 <script src="{{ url_for('static', filename='js/costbenefit.js') }}"></script>
 {% endblock %}

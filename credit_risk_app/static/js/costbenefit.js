@@ -21,4 +21,31 @@
     legend: { orientation: "h", y: 1.12, x: 0 },
     margin: { l: 75, r: 65, t: 40, b: 50 },
   });
+
+  const tRows = window.THRESHOLD_COST_ROWS;
+  const bestT = window.BEST_THRESHOLD;
+  CHART.draw("chart-thresholdcost", [
+    {
+      type: "scatter", mode: "lines+markers", x: tRows.map(r => r.threshold), y: tRows.map(r => r.total_cost),
+      name: "Total cost (₹)",
+      line: { color: CHART.PALETTE.risk, width: 3 },
+      marker: {
+        size: tRows.map(r => r.threshold === bestT ? 12 : 7),
+        color: tRows.map(r => r.threshold === bestT ? CHART.PALETTE.good : CHART.PALETTE.risk),
+      },
+      hovertemplate: "threshold %{x}<br>₹%{y:,.0f} total cost<extra></extra>",
+    },
+    {
+      type: "scatter", mode: "lines", x: tRows.map(r => r.threshold), y: tRows.map(r => r.recall),
+      name: "Recall %", yaxis: "y2", line: { color: CHART.PALETTE.neutral, width: 2, dash: "dot" },
+      hovertemplate: "threshold %{x}<br>%{y:.1f}% recall<extra></extra>",
+    },
+  ], {
+    xaxis: { title: "Probability threshold", gridcolor: CHART.PALETTE.grid },
+    yaxis: { title: "Total cost (₹)", gridcolor: CHART.PALETTE.grid },
+    yaxis2: { title: "Recall (%)", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)", rangemode: "tozero" },
+    showlegend: true,
+    legend: { orientation: "h", y: 1.12, x: 0 },
+    margin: { l: 75, r: 65, t: 40, b: 50 },
+  });
 })();
