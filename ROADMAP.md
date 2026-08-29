@@ -381,6 +381,36 @@ Files: `services/costbenefit_service.py` (new function),
 `static/js/costbenefit.js` — all extensions of the same page built
 earlier, no new route.
 
+## Post-Milestone 5 — Main flow: swap ROC/AUC in for the two portfolio-scale tools (DONE)
+
+Follow-up to the Main/Appendix split: the user asked to pull ROC/AUC into
+the timed live walk and move Portfolio Scenario Simulator and Collection
+Queue out, in both the dashboard and the PPT summary. `services/nav.py`'s
+`NAV_ITEMS` now has 10 `"main"` items instead of 11 — ROC/AUC inserted
+between Model Screening and Lift & Gains (the same model-evaluation slot
+it holds in the milestone build order), Portfolio Scenario Simulator and
+Collection Queue moved into the appendix alongside the rest of the
+Milestone 4 interactive tools (after KS Analysis, before Account 360).
+Purely a reorder of the existing list — no route, template, or page
+content changed; all 26 slides are still built and directly reachable.
+
+New main flow: Executive Overview -> Data Overview -> Data Quality -> OOT
+Split -> Model Screening -> ROC/AUC -> Lift & Gains -> What-If Simulator ->
+Cost-Benefit Analyzer -> Final Recommendation.
+
+`docs/Credit_Risk_Analytics_Summary.pptx` (the 12-slide PPT summary added
+earlier) was rebuilt to match: slides now map 1:1 to the 10 main nav items
+(plus a title slide and a new agenda slide listing them in order), with a
+dedicated ROC/AUC slide (OOT AUC by model, plus the Gini = 2×AUC−1 identity
+check) and no Collection Queue / Portfolio Scenario Simulator content.
+EDA, Feature Engineering, and Leakage & Governance were also appendix
+items and came out of the deck at the same time, since the deck is now
+scoped strictly to "main" content. Cost-Benefit Analyzer's slide picked up
+two real numbers freed up by dropping the Collection Queue chart: the
+₹5,000/FP interior-optimum finding (₹32.8M net benefit at 10% capacity)
+and the threshold-vs-cost curve's optimal cutoff (0.70, ₹421.4M total
+cost) — both already documented above, not new analysis.
+
 ## How to run what's built so far
 
 ```bash
